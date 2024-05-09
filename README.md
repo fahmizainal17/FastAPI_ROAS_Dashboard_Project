@@ -1,2 +1,3 @@
 # FastAPI_ROAS_Dashboard
-Separate Backend from Erontend, Creates Backend Testing and Endpoint Testing
+Create Endpoints and Pass it to Frontend Developer
+Separate Backend from Frontend, Creates Backend Testing and Endpoint Testing
