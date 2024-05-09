@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 app = FastAPI(
-      title="Streamlit Unified Survey Web Application API",
-      summary="A collection of endpoints for Streamlit Unified Survey Web Application",
+      title="Streamlit ROAS Dashboard API",
+      summary="A collection of endpoints for FastAPI ROAS Dashboard",
       version="0.1.0",
       docs_url="/docs",
       openapi_url="/openapi.json",
