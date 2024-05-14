@@ -18,7 +18,7 @@ app = FastAPI(
 )
 
 
-router = APIRouter( prefix="/first_page", tags=["Autoforecaster"])
+router = APIRouter()
 
 #################################################
 # Welcome Page Endpoint
@@ -72,57 +72,69 @@ class FilterInput(BaseModel):
     data: list
     filter_options: dict
 
-@app.post("/filter_dataframe", response_model=list)
-def filter_dataframe(input: FilterInput):
+@router.post("/filter_dataframe", response_model=list)
+def filter_dataframe_endpoint(input: FilterInput):
     df = pd.DataFrame(input.data)
-    return filter_dataframe(df, input.filter_options).to_dict(orient='records')
+    filtered_df = filter_dataframe(df, input.filter_options)
+    return filtered_df.to_dict(orient='records')
 
-def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Lets the user narrow down their forecast by Client Industry,
-    Facebook Page Category, Facebook Page Name, Ads Objective,
-    Start Year, Result Type and Country.
-
-    ### Args:
-    - `df`: An unfiltered pandas dataframe.
-
-    ### Return:
-    A filtered pandas dataframe
-    """
+def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
     df = df.copy()
-
-    filter_options = [
-        'Client Industry',
-        'Facebook Page Name',
-        'Facebook Page Category',
-        'Ads Objective', 'Start Year',
-        'Result Type', 'Country'
-    ]
-
-    fb_page_name = df.loc[~df['Facebook Page Name'].isnull(), 'Facebook Page Name'].unique()
-    client_industry = df.loc[~df['Client Industry'].isnull(), 'Client Industry'].unique()
-    fb_page_category = df.loc[~df['Facebook Page Category'].isnull(), 'Facebook Page Category'].unique()
-    objective = df.loc[~df['Ads Objective'].isnull(), 'Ads Objective'].unique()
-    start_year = df.loc[~df['Start Year'].isnull(), 'Start Year'].unique()
-    res_type = df.loc[~df['Result Type'].isnull(), 'Result Type'].unique()
-    country_id = df.loc[~df['Country'].isnull(), 'Country'].unique()
-
-    # sort the iterables
-    filter_options.sort()
-    client_industry.sort()
-    fb_page_category.sort()
-    fb_page_name.sort()
-    objective.sort()
-    start_year.sort()
-    res_type.sort()
-    country_id.sort()
-
-    # show a list of clients that meet the filtering requirements
-    available_client_list = pd.DataFrame(df['Facebook Page Name'].unique(), columns=['Available clients'])
-    available_client_list.dropna(inplace=True)
-    available_client_list = available_client_list['Available clients'].sort_values(ascending=True)
-
+    for key, value in options.items():
+        if key in df.columns:
+            df = df[df[key] == value]
     return df
+
+# def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
+#     """
+#     Filters the dataframe based on the provided options and additional logic.
+    
+#     ### Args:
+#     - `df`: An unfiltered pandas dataframe.
+#     - `options`: A dictionary with filter options.
+    
+#     ### Return:
+#     A filtered pandas dataframe
+#     """
+#     df = df.copy()
+
+#     filter_options = [
+#         'Client Industry',
+#         'Facebook Page Name',
+#         'Facebook Page Category',
+#         'Ads Objective', 'Start Year',
+#         'Result Type', 'Country'
+#     ]
+
+#     fb_page_name = df.loc[~df['Facebook Page Name'].isnull(), 'Facebook Page Name'].unique()
+#     client_industry = df.loc[~df['Client Industry'].isnull(), 'Client Industry'].unique()
+#     fb_page_category = df.loc[~df['Facebook Page Category'].isnull(), 'Facebook Page Category'].unique()
+#     objective = df.loc[~df['Ads Objective'].isnull(), 'Ads Objective'].unique()
+#     start_year = df.loc[~df['Start Year'].isnull(), 'Start Year'].unique()
+#     res_type = df.loc[~df['Result Type'].isnull(), 'Result Type'].unique()
+#     country_id = df.loc[~df['Country'].isnull(), 'Country'].unique()
+
+#     # Sort the iterables
+#     filter_options.sort()
+#     client_industry.sort()
+#     fb_page_category.sort()
+#     fb_page_name.sort()
+#     objective.sort()
+#     start_year.sort()
+#     res_type.sort()
+#     country_id.sort()
+
+#     # Show a list of clients that meet the filtering requirements
+#     available_client_list = pd.DataFrame(df['Facebook Page Name'].unique(), columns=['Available clients'])
+#     available_client_list.dropna(inplace=True)
+#     available_client_list = available_client_list['Available clients'].sort_values(ascending=True)
+
+#     # Apply the filtering based on provided options
+#     for key, value in options.items():
+#         if key in df.columns:
+#             df = df[df[key] == value]
+  
+#     return df
 
 #################################################
 # Get Descriptive Stats Endpoint
@@ -131,8 +143,8 @@ def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 class StatsInput(BaseModel):
     data: list
 
-@app.post("/get_descriptive_stats", response_model=list)
-def get_descriptive_stats(input: StatsInput):
+@router.post("/get_descriptive_stats", response_model=list)
+def get_descriptive_stats_endpoint(input: StatsInput):
     df = pd.DataFrame(input.data)
     return get_descriptive_stats(df).to_dict(orient='records')
 
@@ -231,11 +243,9 @@ def get_descriptive_stats(df: pd.DataFrame) -> pd.DataFrame:
 #################################################
 
 def get_storage_config():
-    """Function to get storage configuration securely."""
     account_name = os.getenv("STORAGE_NAME")
     account_key = os.getenv("STORAGE_ACCOUNT_KEY")
     container_name = 'decoris-mongo'
-
     return {
         "account_name": account_name,
         "account_key": account_key,
@@ -243,17 +253,12 @@ def get_storage_config():
     }
 
 class importDataBlobStorage:
-    """Class to load data from Azure Blob Storage"""
     def __init__(self, account_name, container_name, account_key):
         self.account_name = account_name
         self.container_name = container_name
         self.account_key = account_key
 
     def load_df(self, blob):
-        """
-        Loads data in either .CSV or .parquet format. In the future, 
-        all data should be in .parquet format instead.
-        """
         sas_i = generate_blob_sas(account_name=self.account_name,
                                   container_name=self.container_name,
                                   blob_name=blob,
@@ -261,9 +266,7 @@ class importDataBlobStorage:
                                   permission=BlobSasPermissions(read=True),
                                   expiry=datetime.now(timezone.utc) + timedelta(hours=1))
 
-        sas_url = f'https://{self.account_name}.blob.core.windows.net/' + \
-                  f'{self.container_name}/{blob}?{sas_i}'
-
+        sas_url = f'https://{self.account_name}.blob.core.windows.net/{self.container_name}/{blob}?{sas_i}'
         try:
             df = pd.read_csv(sas_url, na_filter=True, on_bad_lines='skip')
         except:
@@ -277,12 +280,6 @@ class importDataBlobStorage:
 
 @st.cache_data(ttl=86400)
 def load_campaigns_df() -> pd.DataFrame:
-    """
-    Loads in the Campaigns dataframe.
-    
-    ### Returns:
-    A pandas dataframe
-    """
     storage_config = get_storage_config()
     decoris_dl = importDataBlobStorage(storage_config['account_name'], 
                                        storage_config['container_name'], 
@@ -298,6 +295,14 @@ def load_campaigns_df() -> pd.DataFrame:
 
     return df.sort_values(['Start Date'], ascending=False)
 
+def load_campaigns_df_mock() -> pd.DataFrame:
+    data = {
+        "Campaign ID": ["1", "2"],
+        "Result Type": ["Likes", "Comments"],
+        "Ads Objective": ["Awareness", "Engagement"]
+    }
+    return pd.DataFrame(data)
+
 #################################################
 # Load Data from Azure Blob Storage Endpoint
 #################################################
@@ -305,25 +310,27 @@ def load_campaigns_df() -> pd.DataFrame:
 class LoadDataInput(BaseModel):
     blob_name: str
 
-@app.get("/load-data/{blob_name}")
-def load_data(input: LoadDataInput):
+@router.get("/load-data/{blob_name}")
+def load_data(blob_name: str):
     storage_config = get_storage_config()
     if not storage_config["account_name"] or not storage_config["account_key"]:
         raise HTTPException(status_code=500, detail="Storage configuration is missing.")
+    
     blob_storage = importDataBlobStorage(storage_config['account_name'], storage_config['container_name'], storage_config['account_key'])
-    df = blob_storage.load_df(input.blob_name)
+    df = blob_storage.load_df(blob_name)
     return df.to_dict(orient='records')
+
 
 #################################################
 # Main Endpoint
 #################################################
-@app.post("/main")
+
+@router.post("/main")
 def main():
     df_unfiltered = load_campaigns_df()
     filter_input = FilterInput(data=df_unfiltered.to_dict(orient='records'), filter_options={})
-    filtered_df = filter_dataframe(filter_input)
-    return filtered_df
-
+    filtered_df = filter_dataframe(pd.DataFrame(filter_input.data), filter_input.filter_options)
+    return filtered_df.to_dict(orient='records')
 
 # Run the application
 if __name__ == "__main__":
