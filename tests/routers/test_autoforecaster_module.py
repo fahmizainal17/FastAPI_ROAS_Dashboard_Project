@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from tests.routers.test_autoforecaster_module import router as first_page_router
+# from tests.routers.test_first_page_module import router as first_page_router
 # from tests.routers.test_second_page_module import router as second_page_router
 # from tests.routers.test_third_page_module import router as third_page_router
 from fastapi import FastAPI
@@ -8,12 +8,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 app = FastAPI(
-      title="FastAPI For ROAS Dashboard",
-      summary="A collection of endpoints for FastAPI For ROAS Dashboardn",
+      title="Streamlit Unified Survey Web Application API",
+      summary="A collection of endpoints for Streamlit Unified Survey Web Application",
       version="0.1.0",
       docs_url="/docs",
       openapi_url="/openapi.json",
 )
+
+# @app.get("/", status_code=status.HTTP_200_OK)
+# def root():
+#     return {"message": "Welcome to the root of the FastAPI Survey Web Application!"} ###
 
 @app.get("/", response_class=HTMLResponse, summary="Welcome_Page", tags= ["Root_Of_FastAPI_Application"])
 def root():
@@ -21,7 +25,7 @@ def root():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Welcome to FastAPI For ROAS Dashboard</title>
+        <title>Welcome to FastAPI Survey Web Application</title>
         <style>
             body {
                 font-family: Arial, sans-serif;
@@ -47,7 +51,7 @@ def root():
     </head>
     <body>
         <div class="container">
-            <h1>Welcome to FastAPI For ROAS Dashboard!</h1>
+            <h1>Welcome to FastAPI Survey Web Application!</h1>
             <p>Thank you for visiting. This is the root of the application.</p>
         </div>
     </body>
@@ -55,7 +59,7 @@ def root():
     """
     return HTMLResponse(content=html_content)
 
-app.include_router(first_page_router, tags=["Autoforecaster"])
+# app.include_router(first_page_router, tags=["Data_Cleaner_Pre_Processor"])
 # app.include_router(second_page_router, tags=["Questionnaire_Definer"])
 # app.include_router(third_page_router, tags=["Keypress_Decoder"])
 
