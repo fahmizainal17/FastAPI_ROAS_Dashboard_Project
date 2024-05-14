@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException ,APIRouter
 from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
 import streamlit as st
@@ -16,6 +16,9 @@ app = FastAPI(
       docs_url="/docs",
       openapi_url="/openapi.json",
 )
+
+
+router = APIRouter( prefix="/first_page", tags=["Autoforecaster"])
 
 #################################################
 # Welcome Page Endpoint
@@ -224,22 +227,6 @@ def get_descriptive_stats(df: pd.DataFrame) -> pd.DataFrame:
     return df_best_roas_sets
 
 #################################################
-# Load Data from Azure Blob Storage Endpoint
-#################################################
-
-class LoadDataInput(BaseModel):
-    blob_name: str
-
-@app.get("/load-data/{blob_name}")
-def load_data(input: LoadDataInput):
-    storage_config = get_storage_config()
-    if not storage_config["account_name"] or not storage_config["account_key"]:
-        raise HTTPException(status_code=500, detail="Storage configuration is missing.")
-    blob_storage = importDataBlobStorage(storage_config['account_name'], storage_config['container_name'], storage_config['account_key'])
-    df = blob_storage.load_df(input.blob_name)
-    return df.to_dict(orient='records')
-
-#################################################
 # Utility Functions and Classes
 #################################################
 
@@ -310,6 +297,22 @@ def load_campaigns_df() -> pd.DataFrame:
     df['Stop Date'] = pd.to_datetime(df['Stop Date'], format='%Y-%m-%d')
 
     return df.sort_values(['Start Date'], ascending=False)
+
+#################################################
+# Load Data from Azure Blob Storage Endpoint
+#################################################
+
+class LoadDataInput(BaseModel):
+    blob_name: str
+
+@app.get("/load-data/{blob_name}")
+def load_data(input: LoadDataInput):
+    storage_config = get_storage_config()
+    if not storage_config["account_name"] or not storage_config["account_key"]:
+        raise HTTPException(status_code=500, detail="Storage configuration is missing.")
+    blob_storage = importDataBlobStorage(storage_config['account_name'], storage_config['container_name'], storage_config['account_key'])
+    df = blob_storage.load_df(input.blob_name)
+    return df.to_dict(orient='records')
 
 #################################################
 # Main Endpoint
