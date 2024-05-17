@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 from unittest.mock import patch
-from tests.routers.test_autoforecaster_module import filter_dataframe, get_descriptive_stats, load_campaigns_df_mock, FilterInput, importDataBlobStorage, get_storage_config
+from tests.routers.test_autoforecaster_module import filter_dataframe, get_descriptive_stats, load_campaigns_df_mock, FilterInput, importDataS3, get_s3_config
 
 @pytest.fixture
 def sample_data():
@@ -58,14 +58,14 @@ def test_main():
     assert len(filtered_df) == 2
 
 def test_load_data():
-    with patch('tests.routers.test_autoforecaster_module.importDataBlobStorage.load_df') as mock_load_df:
+    with patch('tests.routers.test_autoforecaster_module.importDataS3.load_df') as mock_load_df:
         mock_load_df.return_value = pd.DataFrame({
             "data": ["data1", "data2"]
         }).to_dict(orient='records')
 
-        storage_config = get_storage_config()
-        blob_storage = importDataBlobStorage(storage_config['account_name'], storage_config['container_name'], storage_config['account_key'])
-        df = blob_storage.load_df("test_blob")
+        s3_config = get_s3_config()
+        s3_storage = importDataS3(s3_config['aws_access_key_id'], s3_config['aws_secret_access_key'], s3_config['bucket_name'])
+        df = s3_storage.load_df("test_key")
         assert len(df) == 2
         assert df[0]["data"] == "data1"
 
