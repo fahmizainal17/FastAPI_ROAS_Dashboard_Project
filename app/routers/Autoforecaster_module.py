@@ -3,8 +3,9 @@ from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
 import streamlit as st
 import pandas as pd
-from azure.storage.blob import generate_blob_sas, BlobSasPermissions
-from datetime import datetime, timedelta ,timezone
+import boto3
+from botocore.client import Config
+from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel
 import os
 
@@ -21,7 +22,7 @@ app = FastAPI(
 # Welcome Page Endpoint
 #################################################
 
-@app.get("/", response_class=HTMLResponse, summary="Welcome_Page", tags= ["Root_Of_FastAPI_Application"])
+@app.get("/", response_class=HTMLResponse, summary="Welcome_Page", tags=["Root_Of_FastAPI_Application"])
 def root():
     html_content = """
     <!DOCTYPE html>
@@ -72,9 +73,9 @@ class FilterInput(BaseModel):
 @app.post("/filter_dataframe", response_model=list)
 def filter_dataframe(input: FilterInput):
     df = pd.DataFrame(input.data)
-    return filter_dataframe(df, input.filter_options).to_dict(orient='records')
+    return filter_dataframe_func(df, input.filter_options).to_dict(orient='records')
 
-def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+def filter_dataframe_func(df: pd.DataFrame, filter_options: dict) -> pd.DataFrame:
     """
     Lets the user narrow down their forecast by Client Industry,
     Facebook Page Category, Facebook Page Name, Ads Objective,
@@ -82,13 +83,14 @@ def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
     ### Args:
     - `df`: An unfiltered pandas dataframe.
+    - `filter_options`: A dictionary with filter options.
 
     ### Return:
     A filtered pandas dataframe
     """
     df = df.copy()
 
-    filter_options = [
+    filter_fields = [
         'Client Industry',
         'Facebook Page Name',
         'Facebook Page Category',
@@ -96,28 +98,9 @@ def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         'Result Type', 'Country'
     ]
 
-    fb_page_name = df.loc[~df['Facebook Page Name'].isnull(), 'Facebook Page Name'].unique()
-    client_industry = df.loc[~df['Client Industry'].isnull(), 'Client Industry'].unique()
-    fb_page_category = df.loc[~df['Facebook Page Category'].isnull(), 'Facebook Page Category'].unique()
-    objective = df.loc[~df['Ads Objective'].isnull(), 'Ads Objective'].unique()
-    start_year = df.loc[~df['Start Year'].isnull(), 'Start Year'].unique()
-    res_type = df.loc[~df['Result Type'].isnull(), 'Result Type'].unique()
-    country_id = df.loc[~df['Country'].isnull(), 'Country'].unique()
-
-    # sort the iterables
-    filter_options.sort()
-    client_industry.sort()
-    fb_page_category.sort()
-    fb_page_name.sort()
-    objective.sort()
-    start_year.sort()
-    res_type.sort()
-    country_id.sort()
-
-    # show a list of clients that meet the filtering requirements
-    available_client_list = pd.DataFrame(df['Facebook Page Name'].unique(), columns=['Available clients'])
-    available_client_list.dropna(inplace=True)
-    available_client_list = available_client_list['Available clients'].sort_values(ascending=True)
+    for field in filter_fields:
+        if field in filter_options and filter_options[field]:
+            df = df[df[field].isin(filter_options[field])]
 
     return df
 
@@ -131,7 +114,7 @@ class StatsInput(BaseModel):
 @app.post("/get_descriptive_stats", response_model=list)
 def get_descriptive_stats(input: StatsInput):
     df = pd.DataFrame(input.data)
-    return get_descriptive_stats(df).to_dict(orient='records')
+    return get_descriptive_stats_func(df).to_dict(orient='records')
 
 def round_to_two_decimal_places_with_min(value: float):
     """
@@ -149,11 +132,10 @@ def round_to_two_decimal_places_with_min(value: float):
     A float rounded to 2 decimal places or 0.01 if
     the rounded value is smaller than 0.01.
     """
-
     rounded_value = round(value, 2)
     return max(rounded_value, 0.01)
 
-def get_descriptive_stats(df: pd.DataFrame) -> pd.DataFrame:
+def get_descriptive_stats_func(df: pd.DataFrame) -> pd.DataFrame:
     """
     Function to get descriptive stats from the filtered dataframe, which
     will be used to generate projections on campaign performance. We'd
@@ -174,7 +156,6 @@ def get_descriptive_stats(df: pd.DataFrame) -> pd.DataFrame:
     - `median_cpm`
     - `max_cpm`
     """
-
     df = df.copy()
     
     best_campaign_sets = []
@@ -224,63 +205,58 @@ def get_descriptive_stats(df: pd.DataFrame) -> pd.DataFrame:
     return df_best_roas_sets
 
 #################################################
-# Load Data from Azure Blob Storage Endpoint
+# Load Data from AWS S3 Endpoint
 #################################################
 
 class LoadDataInput(BaseModel):
-    blob_name: str
+    key: str
 
-@app.get("/load-data/{blob_name}")
+@app.get("/load-data/{key}")
 def load_data(input: LoadDataInput):
-    storage_config = get_storage_config()
-    if not storage_config["account_name"] or not storage_config["account_key"]:
-        raise HTTPException(status_code=500, detail="Storage configuration is missing.")
-    blob_storage = importDataBlobStorage(storage_config['account_name'], storage_config['container_name'], storage_config['account_key'])
-    df = blob_storage.load_df(input.blob_name)
+    s3_config = get_s3_config()
+    if not s3_config["aws_access_key_id"] or not s3_config["aws_secret_access_key"]:
+        raise HTTPException(status_code=500, detail="S3 configuration is missing.")
+    s3_storage = importDataS3(s3_config['aws_access_key_id'], s3_config['aws_secret_access_key'], s3_config['bucket_name'])
+    df = s3_storage.load_df(input.key)
     return df.to_dict(orient='records')
 
 #################################################
 # Utility Functions and Classes
 #################################################
 
-def get_storage_config():
-    """Function to get storage configuration securely."""
-    account_name = os.getenv("STORAGE_NAME")
-    account_key = os.getenv("STORAGE_ACCOUNT_KEY")
-    container_name = 'decoris-mongo'
+def get_s3_config():
+    """Function to get S3 configuration securely."""
+    aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
+    aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    bucket_name = 'your-bucket-name'
 
     return {
-        "account_name": account_name,
-        "account_key": account_key,
-        "container_name": container_name
+        "aws_access_key_id": aws_access_key_id,
+        "aws_secret_access_key": aws_secret_access_key,
+        "bucket_name": bucket_name
     }
 
-class importDataBlobStorage:
-    """Class to load data from Azure Blob Storage"""
-    def __init__(self, account_name, container_name, account_key):
-        self.account_name = account_name
-        self.container_name = container_name
-        self.account_key = account_key
+class importDataS3:
+    """Class to load data from AWS S3"""
+    def __init__(self, aws_access_key_id, aws_secret_access_key, bucket_name):
+        self.s3_client = boto3.client(
+            's3',
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            config=Config(signature_version='s3v4')
+        )
+        self.bucket_name = bucket_name
 
-    def load_df(self, blob):
+    def load_df(self, key):
         """
         Loads data in either .CSV or .parquet format. In the future, 
         all data should be in .parquet format instead.
         """
-        sas_i = generate_blob_sas(account_name=self.account_name,
-                                  container_name=self.container_name,
-                                  blob_name=blob,
-                                  account_key=self.account_key,
-                                  permission=BlobSasPermissions(read=True),
-                                  expiry=datetime.now(timezone.utc) + timedelta(hours=1))
-
-        sas_url = f'https://{self.account_name}.blob.core.windows.net/' + \
-                  f'{self.container_name}/{blob}?{sas_i}'
-
+        obj = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
         try:
-            df = pd.read_csv(sas_url, na_filter=True, on_bad_lines='skip')
+            df = pd.read_csv(obj['Body'], na_filter=True, on_bad_lines='skip')
         except:
-            df = pd.read_parquet(sas_url)
+            df = pd.read_parquet(obj['Body'])
         
         return df
 
@@ -296,10 +272,10 @@ def load_campaigns_df() -> pd.DataFrame:
     ### Returns:
     A pandas dataframe
     """
-    storage_config = get_storage_config()
-    decoris_dl = importDataBlobStorage(storage_config['account_name'], 
-                                       storage_config['container_name'], 
-                                       storage_config['account_key'])
+    s3_config = get_s3_config()
+    decoris_dl = importDataS3(s3_config['aws_access_key_id'], 
+                              s3_config['aws_secret_access_key'], 
+                              s3_config['bucket_name'])
 
     df = decoris_dl.load_df('campaign_final.csv')
     
@@ -318,7 +294,7 @@ def load_campaigns_df() -> pd.DataFrame:
 def main():
     df_unfiltered = load_campaigns_df()
     filter_input = FilterInput(data=df_unfiltered.to_dict(orient='records'), filter_options={})
-    filtered_df = filter_dataframe(filter_input)
+    filtered_df = filter_dataframe_func(filter_input)
     return filtered_df
 
 
@@ -326,4 +302,3 @@ def main():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
-
