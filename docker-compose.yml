@@ -6,8 +6,9 @@ services:
     ports:
       - "80:80"
     environment:
-      - STORAGE_NAME=fake_storage_name
-      - STORAGE_ACCOUNT_KEY=fake_storage_key
+      - AWS_ACCESS_KEY_ID=fake_aws_access_key
+      - AWS_SECRET_ACCESS_KEY=fake_aws_secret_key
+      - BUCKET_NAME=fake_bucket_name
     depends_on:
       - db
 
@@ -19,5 +20,3 @@ services:
       POSTGRES_DB: mydb
     ports:
       - "5432:5432"
-
-##
