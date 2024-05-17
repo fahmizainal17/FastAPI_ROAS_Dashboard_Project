@@ -6,5 +6,6 @@ services:
     ports:
       - "80:80"
     environment:
-      - STORAGE_NAME=${STORAGE_NAME}
-      - STORAGE_ACCOUNT_KEY=${STORAGE_ACCOUNT_KEY}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - BUCKET_NAME=${BUCKET_NAME}
