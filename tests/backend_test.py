@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 from unittest.mock import patch
-from tests.routers.test_autoforecaster_module import filter_dataframe, get_descriptive_stats, load_campaigns_df_mock, FilterInput, importDataS3, get_s3_config
+from tests.routers.test_autoforecaster_module import filter_dataframe, get_descriptive_stats, load_campaigns_df_mock, FilterInput, importDataS3, get_storage_config
 
 @pytest.fixture
 def sample_data():
@@ -61,13 +61,13 @@ def test_load_data():
     with patch('tests.routers.test_autoforecaster_module.importDataS3.load_df') as mock_load_df:
         mock_load_df.return_value = pd.DataFrame({
             "data": ["data1", "data2"]
-        }).to_dict(orient='records')
+        })
 
-        s3_config = get_s3_config()
-        s3_storage = importDataS3(s3_config['aws_access_key_id'], s3_config['aws_secret_access_key'], s3_config['bucket_name'])
+        storage_config = get_storage_config()
+        s3_storage = importDataS3(storage_config['aws_access_key_id'], storage_config['aws_secret_access_key'], storage_config['bucket_name'])
         df = s3_storage.load_df("test_key")
         assert len(df) == 2
-        assert df[0]["data"] == "data1"
+        assert df.iloc[0]["data"] == "data1"
 
 # Running the tests directly if this file is executed
 if __name__ == "__main__":

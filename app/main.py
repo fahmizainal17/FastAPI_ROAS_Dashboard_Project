@@ -1,21 +1,20 @@
 from fastapi import FastAPI
-from tests.routers.test_autoforecaster_module import router as first_page_router
-# from tests.routers.test_second_page_module import router as second_page_router
-# from tests.routers.test_third_page_module import router as third_page_router
-from fastapi import FastAPI
+from app.routers.Autoforecaster_module import router as autoforecaster_router
 from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
 
+# Load environment variables
 load_dotenv()
+
 app = FastAPI(
-      title="FastAPI For ROAS Dashboard",
-      summary="A collection of endpoints for FastAPI For ROAS Dashboardn",
-      version="0.1.0",
-      docs_url="/docs",
-      openapi_url="/openapi.json",
+    title="FastAPI For ROAS Dashboard",
+    summary="A collection of endpoints for FastAPI For ROAS Dashboard",
+    version="0.1.0",
+    docs_url="/docs",
+    openapi_url="/openapi.json",
 )
 
-@app.get("/", response_class=HTMLResponse, summary="Welcome_Page", tags= ["Root_Of_FastAPI_Application"])
+@app.get("/", response_class=HTMLResponse, summary="Welcome_Page", tags=["Root_Of_FastAPI_Application"])
 def root():
     html_content = """
     <!DOCTYPE html>
@@ -55,12 +54,9 @@ def root():
     """
     return HTMLResponse(content=html_content)
 
-app.include_router(first_page_router, tags=["Autoforecaster"])
-# app.include_router(second_page_router, tags=["Questionnaire_Definer"])
-# app.include_router(third_page_router, tags=["Keypress_Decoder"])
+app.include_router(autoforecaster_router, prefix="/first_page", tags=["Autoforecaster"])
 
 # Run the application
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
-
