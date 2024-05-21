@@ -1,7 +1,32 @@
+import os
 import pytest
 import pandas as pd
-from unittest.mock import patch
-from tests.routers.test_autoforecaster_module import filter_dataframe, get_descriptive_stats, load_campaigns_df_mock, FilterInput, importDataS3, get_storage_config
+from dotenv import load_dotenv
+from tests.routers.test_autoforecaster_module import filter_dataframe, get_descriptive_stats, FilterInput, ImportDataS3, get_storage_config, load_campaigns_df
+
+# Load environment variables from .env file
+load_dotenv()
+
+def get_storage_config():
+    return {
+        "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),
+        "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
+        "bucket_name": os.getenv("S3_BUCKET_NAME")
+    }
+
+@pytest.fixture(autouse=True)
+def verify_env_vars():
+    # Print out the environment variables for debugging purposes
+    print("AWS_ACCESS_KEY_ID:", os.getenv("AWS_ACCESS_KEY_ID"))
+    print("AWS_SECRET_ACCESS_KEY:", os.getenv("AWS_SECRET_ACCESS_KEY"))
+    print("S3_BUCKET_NAME:", os.getenv("S3_BUCKET_NAME"))
+    print("OBJECT_NAME_1:", os.getenv("OBJECT_NAME_1"))
+
+    # Ensure the environment variables are set
+    assert os.getenv("AWS_ACCESS_KEY_ID") is not None, "AWS_ACCESS_KEY_ID is not set"
+    assert os.getenv("AWS_SECRET_ACCESS_KEY") is not None, "AWS_SECRET_ACCESS_KEY is not set"
+    assert os.getenv("S3_BUCKET_NAME") is not None, "S3_BUCKET_NAME is not set"
+    assert os.getenv("OBJECT_NAME_1") is not None, "OBJECT_NAME_1 is not set"
 
 @pytest.fixture
 def sample_data():
@@ -23,7 +48,7 @@ def filter_options():
         'Country': 'USA'
     }
 
-def test_filter_dataframe(sample_data: pd.DataFrame, filter_options: dict[str, str]):
+def test_filter_dataframe(sample_data: pd.DataFrame, filter_options: dict):
     result = filter_dataframe(sample_data, filter_options)
     assert all(result['Client Industry'] == 'Tech')
     assert all(result['Country'] == 'USA')
@@ -51,24 +76,25 @@ def test_get_descriptive_stats(sample_data_descriptive: pd.DataFrame):
     assert not result.empty
 
 def test_main():
-    df_unfiltered = load_campaigns_df_mock()
+    df_unfiltered = load_campaigns_df()
     filter_input = FilterInput(data=df_unfiltered.to_dict(orient='records'), filter_options={})
     filtered_df = filter_dataframe(pd.DataFrame(filter_input.data), filter_input.filter_options)
     assert filtered_df is not None
-    assert len(filtered_df) == 2
+    assert len(filtered_df) > 0  # Ensure there is at least one valid entry
 
-def test_load_data():
-    with patch('tests.routers.test_autoforecaster_module.importDataS3.load_df') as mock_load_df:
-        mock_load_df.return_value = pd.DataFrame({
-            "data": ["data1", "data2"]
-        })
+def test_load_data_from_s3():
+    storage_config = get_storage_config()
+    assert storage_config['aws_access_key_id'] is not None, "AWS_ACCESS_KEY_ID is not set in .env"
+    assert storage_config['aws_secret_access_key'] is not None, "AWS_SECRET_ACCESS_KEY is not set in .env"
+    assert storage_config['bucket_name'] is not None, "BUCKET_NAME is not set in .env"
 
-        storage_config = get_storage_config()
-        s3_storage = importDataS3(storage_config['aws_access_key_id'], storage_config['aws_secret_access_key'], storage_config['bucket_name'])
-        df = s3_storage.load_df("test_key")
-        assert len(df) == 2
-        assert df.iloc[0]["data"] == "data1"
+    s3_storage = ImportDataS3(storage_config['aws_access_key_id'], 
+                           storage_config['aws_secret_access_key'], 
+                           storage_config['bucket_name'])
+    df = s3_storage.load_df(os.getenv("OBJECT_NAME_1"))
+    assert not df.empty, "DataFrame loaded from S3 is empty"
+    assert 'Campaign ID' in df.columns, "Expected column 'Campaign ID' not found in DataFrame"
+    assert 'Result Type' in df.columns, "Expected column 'Result Type' not found in DataFrame"
 
-# Running the tests directly if this file is executed
 if __name__ == "__main__":
     pytest.main()

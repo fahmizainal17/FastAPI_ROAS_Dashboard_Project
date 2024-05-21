@@ -1,68 +1,59 @@
-from fastapi import FastAPI, HTTPException ,APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi import HTTPException, APIRouter
+from fastapi.responses import HTMLResponse, Response
 from dotenv import load_dotenv
-import streamlit as st
 import pandas as pd
-from azure.storage.blob import generate_blob_sas, BlobSasPermissions
-from datetime import datetime, timedelta ,timezone
+import boto3
+from botocore.exceptions import NoCredentialsError
 from pydantic import BaseModel
 import os
+import logging
+from io import BytesIO, StringIO
 
-load_dotenv()
-app = FastAPI(
-      title="Streamlit ROAS Dashboard API",
-      summary="A collection of endpoints for FastAPI ROAS Dashboard",
-      version="0.1.0",
-      docs_url="/docs",
-      openapi_url="/openapi.json",
-)
+#################################################
+# Utility Functions and Classes
+#################################################
 
+load_dotenv() 
+
+# Setup logger
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+def get_storage_config():
+    return {
+        "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),
+        "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
+        "bucket_name": os.getenv("S3_BUCKET_NAME")
+    }
 
 router = APIRouter()
 
-#################################################
-# Welcome Page Endpoint
-#################################################
+class ImportDataS3:
+    def __init__(self, aws_access_key_id: str, aws_secret_access_key: str, bucket_name: str):
+        self.s3_client = boto3.client(
+            's3',
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key
+        )
+        self.bucket_name = bucket_name
 
-@app.get("/", response_class=HTMLResponse, summary="Welcome_Page", tags= ["Root_Of_FastAPI_Application"])
-def root():
-    html_content = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Welcome to FastAPI For ROAS Dashboard</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                background-color: #f4f4f4;
-                margin: 0;
-                padding: 0;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-            }
-            .container {
-                text-align: center;
-            }
-            h1 {
-                color: #333;
-            }
-            p {
-                color: #666;
-                font-size: 18px;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>Welcome to FastAPI For ROAS Dashboard!</h1>
-            <p>Thank you for visiting. This is the root of the application.</p>
-        </div>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
+    def load_df(self, key: str) -> pd.DataFrame:
+        if not self.bucket_name:
+            logger.error("Bucket name is not set.")
+            raise ValueError("Bucket name is not set.")
+        try:
+            response = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
+            body = response['Body'].read()
+            buffer = BytesIO(body)
+            df = pd.read_parquet(buffer)
+            return df
+        except NoCredentialsError as e:
+            logger.error("AWS credentials not available.")
+            raise HTTPException(status_code=500, detail="AWS credentials not available.") from e
+        except Exception as e:
+            logger.error(f"Failed to load data from S3: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error loading data from S3: {str(e)}") from e
+
 
 #################################################
 # Filter Dataframe Endpoint
@@ -72,7 +63,7 @@ class FilterInput(BaseModel):
     data: list
     filter_options: dict
 
-@router.post("/filter_dataframe", response_model=list)
+@router.get("/filter_dataframe", response_model=list)
 def filter_dataframe_endpoint(input: FilterInput):
     df = pd.DataFrame(input.data)
     filtered_df = filter_dataframe(df, input.filter_options)
@@ -80,61 +71,22 @@ def filter_dataframe_endpoint(input: FilterInput):
 
 def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
     df = df.copy()
+    
+    filter_options = [
+        'Client Industry',
+        'Facebook Page Name',
+        'Facebook Page Category',
+        'Ads Objective', 'Start Year',
+        'Result Type', 'Country'
+    ]
+
     for key, value in options.items():
         if key in df.columns:
-            df = df[df[key] == value]
+            if isinstance(value, list):
+                df = df[df[key].isin(value)]
+            else:
+                df = df[df[key] == value]
     return df
-
-# def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
-#     """
-#     Filters the dataframe based on the provided options and additional logic.
-    
-#     ### Args:
-#     - `df`: An unfiltered pandas dataframe.
-#     - `options`: A dictionary with filter options.
-    
-#     ### Return:
-#     A filtered pandas dataframe
-#     """
-#     df = df.copy()
-
-#     filter_options = [
-#         'Client Industry',
-#         'Facebook Page Name',
-#         'Facebook Page Category',
-#         'Ads Objective', 'Start Year',
-#         'Result Type', 'Country'
-#     ]
-
-#     fb_page_name = df.loc[~df['Facebook Page Name'].isnull(), 'Facebook Page Name'].unique()
-#     client_industry = df.loc[~df['Client Industry'].isnull(), 'Client Industry'].unique()
-#     fb_page_category = df.loc[~df['Facebook Page Category'].isnull(), 'Facebook Page Category'].unique()
-#     objective = df.loc[~df['Ads Objective'].isnull(), 'Ads Objective'].unique()
-#     start_year = df.loc[~df['Start Year'].isnull(), 'Start Year'].unique()
-#     res_type = df.loc[~df['Result Type'].isnull(), 'Result Type'].unique()
-#     country_id = df.loc[~df['Country'].isnull(), 'Country'].unique()
-
-#     # Sort the iterables
-#     filter_options.sort()
-#     client_industry.sort()
-#     fb_page_category.sort()
-#     fb_page_name.sort()
-#     objective.sort()
-#     start_year.sort()
-#     res_type.sort()
-#     country_id.sort()
-
-#     # Show a list of clients that meet the filtering requirements
-#     available_client_list = pd.DataFrame(df['Facebook Page Name'].unique(), columns=['Available clients'])
-#     available_client_list.dropna(inplace=True)
-#     available_client_list = available_client_list['Available clients'].sort_values(ascending=True)
-
-#     # Apply the filtering based on provided options
-#     for key, value in options.items():
-#         if key in df.columns:
-#             df = df[df[key] == value]
-  
-#     return df
 
 #################################################
 # Get Descriptive Stats Endpoint
@@ -143,197 +95,136 @@ def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
 class StatsInput(BaseModel):
     data: list
 
-@router.post("/get_descriptive_stats", response_model=list)
+@router.get("/get_descriptive_stats", response_model=list)
 def get_descriptive_stats_endpoint(input: StatsInput):
     df = pd.DataFrame(input.data)
     return get_descriptive_stats(df).to_dict(orient='records')
 
 def round_to_two_decimal_places_with_min(value: float):
-    """
-    This function is used to round decimal values
-    up to 2 decimal places. However, there are instances
-    where rounding to two decimal places still yields 0.00.
-    This poses problems when forecasting results. Hence, 
-    we'll set the minimum this function can possibly return to
-    be 0.01
-
-    ### Args:
-    - `value`: A float
-
-    ### Returns:
-    A float rounded to 2 decimal places or 0.01 if
-    the rounded value is smaller than 0.01.
-    """
-
     rounded_value = round(value, 2)
     return max(rounded_value, 0.01)
 
 def get_descriptive_stats(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Function to get descriptive stats from the filtered dataframe, which
-    will be used to generate projections on campaign performance. We'd
-    ideally use a machine learning approach, but can't due to data limitations.
-    Hence, we'll instead use the IQR (Inter-quartile range) to make
-    these estimates. 
-
-    ### Args
-    - `df`: A pandas dataframe
-
-    ### Return
-    A pandas dataframe with the following fields as columns:
-    - `min_cpr`: Minimum Cost per Result e.g., purchases, messages,
-    likes, etc.
-    - `median_cpr`
-    - `max_cpr`
-    - `min_cpm`: Minimum Cost per Mile
-    - `median_cpm`
-    - `max_cpm`
-    """
-
     df = df.copy()
     
     best_campaign_sets = []
     for result_types in df['Result Type'].unique():
-        
-        # median
-        median_cpr= df.loc[df['Result Type'] == result_types, 'Cost per Result'] \
-                    .median(skipna=True)
-        
-        median_cpm= df.loc[df['Result Type'] == result_types, 'Cost per Mile'] \
-                    .median(skipna=True)
+        median_cpr = df.loc[df['Result Type'] == result_types, 'Cost per Result'].median(skipna=True)
+        median_cpm = df.loc[df['Result Type'] == result_types, 'Cost per Mile'].median(skipna=True)
 
-        # min
-        min_cpr= df.loc[df['Result Type'] == result_types, 'Cost per Result'] \
-                    .quantile(q=0.25, interpolation='midpoint')
-        
-        min_cpm= df.loc[df['Result Type'] == result_types, 'Cost per Mile'] \
-                    .quantile(q=0.25, interpolation='midpoint')
+        min_cpr = df.loc[df['Result Type'] == result_types, 'Cost per Result'].quantile(q=0.25, interpolation='midpoint')
+        min_cpm = df.loc[df['Result Type'] == result_types, 'Cost per Mile'].quantile(q=0.25, interpolation='midpoint')
 
-        # max
-        max_cpr= df.loc[df['Result Type'] == result_types, 'Cost per Result'] \
-                    .quantile(q=0.80, interpolation='midpoint')
-        
-        max_cpm= df.loc[df['Result Type'] == result_types, 'Cost per Mile'] \
-                    .quantile(q=0.80, interpolation='midpoint')
+        max_cpr = df.loc[df['Result Type'] == result_types, 'Cost per Result'].quantile(q=0.80, interpolation='midpoint')
+        max_cpm = df.loc[df['Result Type'] == result_types, 'Cost per Mile'].quantile(q=0.80, interpolation='midpoint')
 
-        
         num_campaigns = len(df.loc[df['Result Type'] == result_types])
 
         metrics = {
-        'Result Type': result_types,
-        'Min CPM': round_to_two_decimal_places_with_min(min_cpm),
-        'Median CPM': round_to_two_decimal_places_with_min(median_cpm),
-        'Max CPM': round_to_two_decimal_places_with_min(max_cpm),
-        'Min CPR': round_to_two_decimal_places_with_min(min_cpr),
-        'Median CPR': round_to_two_decimal_places_with_min(median_cpr),
-        'Max CPR': round_to_two_decimal_places_with_min(max_cpr),
-        'No. of Campaigns': num_campaigns,
+            'Result Type': result_types,
+            'Min CPM': round_to_two_decimal_places_with_min(min_cpm),
+            'Median CPM': round_to_two_decimal_places_with_min(median_cpm),
+            'Max CPM': round_to_two_decimal_places_with_min(max_cpm),
+            'Min CPR': round_to_two_decimal_places_with_min(min_cpr),
+            'Median CPR': round_to_two_decimal_places_with_min(median_cpr),
+            'Max CPR': round_to_two_decimal_places_with_min(max_cpr),
+            'No. of Campaigns': num_campaigns,
         }
 
         df_metrics_by_industry = pd.DataFrame(metrics, index=[0])
-
         best_campaign_sets.append(df_metrics_by_industry)
 
     df_best_roas_sets = pd.concat(best_campaign_sets)
-
     return df_best_roas_sets
-
-#################################################
-# Utility Functions and Classes
-#################################################
-
-def get_storage_config():
-    account_name = os.getenv("STORAGE_NAME")
-    account_key = os.getenv("STORAGE_ACCOUNT_KEY")
-    container_name = 'decoris-mongo'
-    return {
-        "account_name": account_name,
-        "account_key": account_key,
-        "container_name": container_name
-    }
-
-class importDataBlobStorage:
-    def __init__(self, account_name, container_name, account_key):
-        self.account_name = account_name
-        self.container_name = container_name
-        self.account_key = account_key
-
-    def load_df(self, blob):
-        sas_i = generate_blob_sas(account_name=self.account_name,
-                                  container_name=self.container_name,
-                                  blob_name=blob,
-                                  account_key=self.account_key,
-                                  permission=BlobSasPermissions(read=True),
-                                  expiry=datetime.now(timezone.utc) + timedelta(hours=1))
-
-        sas_url = f'https://{self.account_name}.blob.core.windows.net/{self.container_name}/{blob}?{sas_i}'
-        try:
-            df = pd.read_csv(sas_url, na_filter=True, on_bad_lines='skip')
-        except:
-            df = pd.read_parquet(sas_url)
-        
-        return df
 
 #################################################
 # Campaigns Dataset Loader Endpoint
 #################################################
 
-@st.cache_data(ttl=86400)
 def load_campaigns_df() -> pd.DataFrame:
     storage_config = get_storage_config()
-    decoris_dl = importDataBlobStorage(storage_config['account_name'], 
-                                       storage_config['container_name'], 
-                                       storage_config['account_key'])
+    s3_dl = ImportDataS3(storage_config['aws_access_key_id'], 
+                         storage_config['aws_secret_access_key'], 
+                         storage_config['bucket_name'])
 
-    df = decoris_dl.load_df('campaign_final.csv')
+    df = s3_dl.load_df('campaign_final.parquet')
     
     df['Campaign ID'] = df['Campaign ID'].astype('string')
     df['Result Type'] = df['Result Type'].str.replace('_', ' ').str.title()
     df['Ads Objective'] = df['Ads Objective'].str.replace('_', ' ').str.title()
-    df['Start Date'] = pd.to_datetime(df['Start Date'], format='%Y-%m-%d')
-    df['Stop Date'] = pd.to_datetime(df['Stop Date'], format='%Y-%m-%d')
+    
+    # Convert dates with error handling
+    df['Start Date'] = pd.to_datetime(df['Start Date'], format='%Y-%m-%d', errors='coerce')
+    df['Stop Date'] = pd.to_datetime(df['Stop Date'], format='%Y-%m-%d', errors='coerce')
+
+    # Print rows with invalid dates for debugging
+    invalid_start_dates = df[df['Start Date'].isna()]['Start Date']
+    invalid_stop_dates = df[df['Stop Date'].isna()]['Stop Date']
+    
+    if not invalid_start_dates.empty:
+        print("Invalid Start Dates:", invalid_start_dates)
+    if not invalid_stop_dates.empty:
+        print("Invalid Stop Dates:", invalid_stop_dates)
 
     return df.sort_values(['Start Date'], ascending=False)
 
-def load_campaigns_df_mock() -> pd.DataFrame:
-    data = {
-        "Campaign ID": ["1", "2"],
-        "Result Type": ["Likes", "Comments"],
-        "Ads Objective": ["Awareness", "Engagement"]
-    }
-    return pd.DataFrame(data)
-
 #################################################
-# Load Data from Azure Blob Storage Endpoint
+# Load Data from AWS S3 Endpoint
 #################################################
 
 class LoadDataInput(BaseModel):
-    blob_name: str
+    key: str
 
-@router.get("/load-data/{blob_name}")
-def load_data(blob_name: str):
+@router.get("/load-data/{key}", response_class=Response)
+def load_data(key: str):
     storage_config = get_storage_config()
-    if not storage_config["account_name"] or not storage_config["account_key"]:
+    if not storage_config['aws_access_key_id'] or not storage_config['aws_secret_access_key']:
         raise HTTPException(status_code=500, detail="Storage configuration is missing.")
     
-    blob_storage = importDataBlobStorage(storage_config['account_name'], storage_config['container_name'], storage_config['account_key'])
-    df = blob_storage.load_df(blob_name)
-    return df.to_dict(orient='records')
+    s3_storage = ImportDataS3(storage_config['aws_access_key_id'], storage_config['aws_secret_access_key'], storage_config['bucket_name'])
+    df = s3_storage.load_df(key)
+    
+    # Convert DataFrame to CSV using StringIO for in-memory operation
+    csv_buffer = StringIO()
+    df.to_csv(csv_buffer, index=False)
+    csv_buffer.seek(0)
+    
+    # Return CSV data as downloadable response
+    headers = {
+        'Content-Disposition': f'attachment; filename="{key}.csv"',
+        'Content-Type': 'text/csv'
+    }
+    
+    return Response(content=csv_buffer.getvalue(), headers=headers, media_type="text/csv")
 
+#################################################
+# Test S3 Connection
+#################################################
+
+def test_s3_connection():
+    storage_config = get_storage_config()
+    if not storage_config['aws_access_key_id'] or not storage_config['aws_secret_access_key']:
+        raise HTTPException(status_code=500, detail="Storage configuration is missing.")
+    try:
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=storage_config['aws_access_key_id'],
+            aws_secret_access_key=storage_config['aws_secret_access_key']
+        )
+        result = s3_client.list_objects_v2(Bucket=storage_config['bucket_name'])
+        return {"status": "success", "objects": result.get('Contents', [])}
+    except NoCredentialsError:
+        raise HTTPException(status_code=401, detail="Credentials are not available.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 #################################################
 # Main Endpoint
 #################################################
 
-@router.post("/main")
+@router.get("/main")
 def main():
     df_unfiltered = load_campaigns_df()
     filter_input = FilterInput(data=df_unfiltered.to_dict(orient='records'), filter_options={})
     filtered_df = filter_dataframe(pd.DataFrame(filter_input.data), filter_input.filter_options)
     return filtered_df.to_dict(orient='records')
-
-# Run the application
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
-

@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from dotenv import load_dotenv
 import streamlit as st
 import pandas as pd
@@ -72,7 +72,7 @@ class FilterInput(BaseModel):
     data: list
     filter_options: dict
 
-@router.post("/filter_dataframe", response_model=list)
+@router.get("/filter_dataframe", response_model=list)
 def filter_dataframe_endpoint(input: FilterInput):
     df = pd.DataFrame(input.data)
     filtered_df = filter_dataframe(df, input.filter_options)
@@ -125,7 +125,7 @@ def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
 class StatsInput(BaseModel):
     data: list
 
-@router.post("/get_descriptive_stats", response_model=list)
+@router.get("/get_descriptive_stats", response_model=list)
 def get_descriptive_stats_endpoint(input: StatsInput):
     df = pd.DataFrame(input.data)
     return get_descriptive_stats(df).to_dict(orient='records')
@@ -193,10 +193,11 @@ class importDataS3:
     def load_df(self, key):
         try:
             response = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
-            df = pd.read_csv(response['Body'], na_filter=True, on_bad_lines='skip')
-        except:
-            response = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
             df = pd.read_parquet(response['Body'])
+        except NoCredentialsError as e:
+            raise HTTPException(status_code=500, detail="AWS credentials not available.") from e
+        except Exception as e:
+            raise HTTPException(status_code=500, detail="Error loading data from S3.") from e
         
         return df
 
@@ -249,34 +250,18 @@ def load_data(key: str):
     
     s3_storage = importDataS3(storage_config['aws_access_key_id'], storage_config['aws_secret_access_key'], storage_config['bucket_name'])
     df = s3_storage.load_df(key)
-    return df.to_dict(orient='records')
+    
+    # Convert DataFrame to CSV
+    csv_data = df.to_csv(index=False)
+    
+    # Return CSV data as response
+    return Response(content=csv_data, media_type="text/csv")
 
-#################################################
-# Test S3 Connection
-#################################################
-@app.get("/test-s3-connection")
-def test_s3_connection():
-    storage_config = get_storage_config()
-    if not storage_config['aws_access_key_id'] or not storage_config['aws_secret_access_key']:
-        raise HTTPException(status_code=500, detail="Storage configuration is missing.")
-    try:
-        s3_client = boto3.client(
-            's3',
-            aws_access_key_id=storage_config['aws_access_key_id'],
-            aws_secret_access_key=storage_config['aws_secret_access_key']
-        )
-        result = s3_client.list_objects_v2(Bucket=storage_config['bucket_name'])
-        return {"status": "success", "objects": result.get('Contents', [])}
-    except NoCredentialsError:
-        raise HTTPException(status_code=401, detail="Credentials are not available.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-        
 #################################################
 # Main Endpoint
 #################################################
 
-@router.post("/main")
+@router.get("/main")
 def main():
     df_unfiltered = load_campaigns_df()
     filter_input = FilterInput(data=df_unfiltered.to_dict(orient='records'), filter_options={})
