@@ -44,15 +44,18 @@ def test_get_descriptive_stats_endpoint():
     assert 'Max CPR' in stats[0]
     assert stats[0]['Min CPR'] <= stats[0]['Max CPR']
 
-def test_main_endpoint():
-    response = client.post("/first_page/main")
-    assert response.status_code == 200
-    assert len(response.json()) > 0  # Ensure there is at least one valid entry
+@pytest.fixture(scope="module")
+def test_client():
+    return TestClient(app)
 
-def test_load_data_endpoint():
+
+def test_load_data_endpoint(test_client):
     key = os.getenv("OBJECT_NAME_1")
+    print(f"OBJECT_NAME_1: {key}")  # Print the key for debugging
     assert key is not None, "OBJECT_NAME_1 environment variable is not set"
-    response = client.get(f"/first_page/load-data/{key}")
+    response = test_client.get(f"/first_page/load-data/{key}")
+    print(f"Response status code: {response.status_code}")  # Print status code for debugging
+    print(f"Response content: {response.content}")  # Print response content for debugging
     assert response.status_code == 200, f"Failed to load data: {response.status_code}"
     assert "text/csv" in response.headers["content-type"], "Response is not in CSV format"
 

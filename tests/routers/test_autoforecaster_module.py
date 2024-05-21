@@ -1,5 +1,5 @@
-from fastapi import HTTPException, APIRouter
-from fastapi.responses import HTMLResponse, Response
+from fastapi import HTTPException, APIRouter, BackgroundTasks
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from dotenv import load_dotenv
 import pandas as pd
 import boto3
@@ -10,6 +10,7 @@ import logging
 from io import BytesIO, StringIO
 from typing import List, Dict, Any
 import numpy as np
+import aiofiles
 
 #################################################
 # Utility Functions and Classes
@@ -220,27 +221,43 @@ def load_campaigns_df() -> pd.DataFrame:
 class LoadDataInput(BaseModel):
     key: str
 
-@router.get("/load-data/{key}", response_class=Response)
-def load_data(key: str):
-    storage_config = get_storage_config()
-    if not storage_config['aws_access_key_id'] or not storage_config['aws_secret_access_key']:
-        raise HTTPException(status_code=500, detail="Storage configuration is missing.")
+async def load_file(file_path: str):
+    async with aiofiles.open(file_path, mode='r') as f:
+        content = await f.read()
+    return content
+
+@router.get("/first_page/load-data/{key}")
+async def load_data(key: str):
+    # Adjust the path to point to the root directory
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    file_path = os.path.join(base_dir, key)
     
-    s3_storage = ImportDataS3(storage_config['aws_access_key_id'], storage_config['aws_secret_access_key'], storage_config['bucket_name'])
-    df = s3_storage.load_df(key)
+    print(f"Resolved file path: {file_path}")  # Debugging statement
     
-    # Convert DataFrame to CSV using StringIO for in-memory operation
-    csv_buffer = StringIO()
-    df.to_csv(csv_buffer, index=False)
-    csv_buffer.seek(0)
-    
-    # Return CSV data as downloadable response
-    headers = {
-        'Content-Disposition': f'attachment; filename="{key}.csv"',
-        'Content-Type': 'text/csv'
-    }
-    
-    return Response(content=csv_buffer.getvalue(), headers=headers, media_type="text/csv")
+    if not os.path.exists(file_path):
+        print(f"File does not exist at path: {file_path}")  # Additional debug statement
+        raise HTTPException(status_code=404, detail=f"File not found at path: {file_path}")
+
+    # Check if the file is CSV or Parquet
+    try:
+        if file_path.endswith('.csv'):
+            df = pd.read_csv(file_path)
+        elif file_path.endswith('.parquet'):
+            df = pd.read_parquet(file_path)
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file type")
+    except Exception as e:
+        print(f"Error reading the file: {e}")  # Additional debug statement
+        raise HTTPException(status_code=500, detail=f"Error reading the file: {e}")
+
+    if df.empty:
+        raise HTTPException(status_code=204, detail="No content")
+
+    output = StringIO()
+    df.to_csv(output, index=False)
+    output.seek(0)
+
+    return StreamingResponse(output, media_type="text/csv")
 
 #################################################
 # Main Endpoint
