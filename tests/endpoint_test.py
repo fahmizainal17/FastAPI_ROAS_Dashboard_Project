@@ -59,14 +59,12 @@ def test_load_data_endpoint():
     # Use StringIO to handle the response content as a file-like object
     csv_content = StringIO(response.content.decode('utf-8'))
     df = pd.read_csv(csv_content)
-   
     assert not df.empty, "DataFrame loaded from endpoint is empty"
     assert 'Campaign ID' in df.columns, "Expected column 'Campaign ID' not found in DataFrame"
     assert 'Result Type' in df.columns, "Expected column 'Result Type' not found in DataFrame"
 
     # Print the loaded data for verification
     print(df.head())
-
 
 if __name__ == "__main__":
     pytest.main()
