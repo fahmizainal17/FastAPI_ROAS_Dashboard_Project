@@ -211,7 +211,7 @@ def load_campaigns_df() -> pd.DataFrame:
                          storage_config['aws_secret_access_key'], 
                          storage_config['bucket_name'])
 
-    df = s3_dl.load_df('campaign_final.csv')
+    df = s3_dl.load_df('campaign_final.parquet')
     
     df['Campaign ID'] = df['Campaign ID'].astype('string')
     df['Result Type'] = df['Result Type'].str.replace('_', ' ').str.title()
@@ -244,13 +244,34 @@ class LoadDataInput(BaseModel):
 @router.get("/load-data/{key}")
 def load_data(key: str):
     storage_config = get_storage_config()
-    if not storage_config["aws_access_key_id"] or not storage_config["aws_secret_access_key"]:
+    if not storage_config['aws_access_key_id'] or not storage_config['aws_secret_access_key']:
         raise HTTPException(status_code=500, detail="Storage configuration is missing.")
     
     s3_storage = importDataS3(storage_config['aws_access_key_id'], storage_config['aws_secret_access_key'], storage_config['bucket_name'])
     df = s3_storage.load_df(key)
     return df.to_dict(orient='records')
 
+#################################################
+# Test S3 Connection
+#################################################
+@app.get("/test-s3-connection")
+def test_s3_connection():
+    storage_config = get_storage_config()
+    if not storage_config['aws_access_key_id'] or not storage_config['aws_secret_access_key']:
+        raise HTTPException(status_code=500, detail="Storage configuration is missing.")
+    try:
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=storage_config['aws_access_key_id'],
+            aws_secret_access_key=storage_config['aws_secret_access_key']
+        )
+        result = s3_client.list_objects_v2(Bucket=storage_config['bucket_name'])
+        return {"status": "success", "objects": result.get('Contents', [])}
+    except NoCredentialsError:
+        raise HTTPException(status_code=401, detail="Credentials are not available.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
 #################################################
 # Main Endpoint
 #################################################
