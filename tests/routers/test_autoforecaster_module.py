@@ -197,26 +197,6 @@ def load_data(key: str):
     
     return Response(content=csv_buffer.getvalue(), headers=headers, media_type="text/csv")
 
-#################################################
-# Test S3 Connection
-#################################################
-
-def test_s3_connection():
-    storage_config = get_storage_config()
-    if not storage_config['aws_access_key_id'] or not storage_config['aws_secret_access_key']:
-        raise HTTPException(status_code=500, detail="Storage configuration is missing.")
-    try:
-        s3_client = boto3.client(
-            's3',
-            aws_access_key_id=storage_config['aws_access_key_id'],
-            aws_secret_access_key=storage_config['aws_secret_access_key']
-        )
-        result = s3_client.list_objects_v2(Bucket=storage_config['bucket_name'])
-        return {"status": "success", "objects": result.get('Contents', [])}
-    except NoCredentialsError:
-        raise HTTPException(status_code=401, detail="Credentials are not available.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 #################################################
 # Main Endpoint
