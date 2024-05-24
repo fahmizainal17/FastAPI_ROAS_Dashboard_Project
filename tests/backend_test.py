@@ -2,7 +2,7 @@ import os
 import pytest
 import pandas as pd
 from dotenv import load_dotenv
-from tests.routers.test_autoforecaster_module import filter_dataframe, get_descriptive_stats, FilterInput, importDataS3, get_storage_config, load_campaigns_df
+from tests.routers.test_autoforecaster_module import filter_dataframe, get_descriptive_stats, FilterInput, ImportDataS3, get_storage_config, load_campaigns_df
 
 # Load environment variables from .env file
 load_dotenv()
@@ -74,7 +74,7 @@ def test_load_data_from_s3():
     assert storage_config['aws_secret_access_key'] is not None, "AWS_SECRET_ACCESS_KEY is not set in .env"
     assert storage_config['bucket_name'] is not None, "BUCKET_NAME is not set in .env"
 
-    s3_storage = importDataS3(storage_config['aws_access_key_id'], 
+    s3_storage = ImportDataS3(storage_config['aws_access_key_id'], 
                               storage_config['aws_secret_access_key'], 
                               storage_config['bucket_name'])
     df = s3_storage.load_df(os.getenv("OBJECT_NAME_1"))

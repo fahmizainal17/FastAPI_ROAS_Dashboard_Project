@@ -31,7 +31,7 @@ def get_storage_config():
 
 router = APIRouter()
 
-class importDataS3:
+class ImportDataS3:
     def __init__(self, aws_access_key_id: str, aws_secret_access_key: str, bucket_name: str):
         self.s3_client = boto3.client(
             's3',
@@ -146,7 +146,7 @@ def get_descriptive_stats(df: pd.DataFrame) -> pd.DataFrame:
 
 def load_campaigns_df() -> pd.DataFrame:
     storage_config = get_storage_config()
-    s3_dl = importDataS3(storage_config['aws_access_key_id'], 
+    s3_dl = ImportDataS3(storage_config['aws_access_key_id'], 
                          storage_config['aws_secret_access_key'], 
                          storage_config['bucket_name'])
 
@@ -178,43 +178,21 @@ def load_campaigns_df() -> pd.DataFrame:
 class LoadDataInput(BaseModel):
     key: str
 
-async def load_file(file_path: str):
-    async with aiofiles.open(file_path, mode='r') as f:
-        content = await f.read()
-    return content
-
-@router.get("/first_page/load-data/{key}")
+@router.get("/load-data/{key}")
 async def load_data(key: str):
-    # Adjust the path to point to the root directory
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-    file_path = os.path.join(base_dir, key)
+    storage_config = get_storage_config()
+    if not storage_config['aws_access_key_id'] or not storage_config['aws_secret_access_key']:
+        raise HTTPException(status_code=500, detail="Storage configuration is missing.")
     
-    print(f"Resolved file path: {file_path}")  # Debugging statement
+    s3_storage = ImportDataS3(storage_config['aws_access_key_id'], storage_config['aws_secret_access_key'], storage_config['bucket_name'])
+    parquet_data = s3_storage.load_df(key)
     
-    if not os.path.exists(file_path):
-        print(f"File does not exist at path: {file_path}")  # Additional debug statement
-        raise HTTPException(status_code=404, detail=f"File not found at path: {file_path}")
-
-    # Check if the file is CSV or Parquet
-    try:
-        if file_path.endswith('.csv'):
-            df = pd.read_csv(file_path)
-        elif file_path.endswith('.parquet'):
-            df = pd.read_parquet(file_path)
-        else:
-            raise HTTPException(status_code=400, detail="Unsupported file type")
-    except Exception as e:
-        print(f"Error reading the file: {e}")  # Additional debug statement
-        raise HTTPException(status_code=500, detail=f"Error reading the file: {e}")
-
-    if df.empty:
-        raise HTTPException(status_code=204, detail="No content")
-
-    output = StringIO()
-    df.to_csv(output, index=False)
-    output.seek(0)
-
-    return StreamingResponse(output, media_type="text/csv")
+    headers = {
+        'Content-Disposition': f'attachment; filename="{key}"',
+        'Content-Type': 'application/octet-stream'
+    }
+    
+    return StreamingResponse(BytesIO(parquet_data), headers=headers, media_type="application/octet-stream")
 
 #################################################
 # Main Endpoint

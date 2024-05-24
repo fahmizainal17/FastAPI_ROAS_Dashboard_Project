@@ -6,6 +6,7 @@ import os
 from io import StringIO
 from dotenv import load_dotenv
 
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -47,15 +48,18 @@ def test_load_data_endpoint(test_client):
     key = os.getenv("OBJECT_NAME_1")
     print(f"OBJECT_NAME_1: {key}")  # Print the key for debugging
     assert key is not None, "OBJECT_NAME_1 environment variable is not set"
+    
     response = test_client.get(f"/first_page/load-data/{key}")
     print(f"Response status code: {response.status_code}")  # Print status code for debugging
-    print(f"Response content: {response.content}")  # Print response content for debugging
+    print(f"Response content: {response.content[:100]}")  # Print first 100 bytes of response content for debugging
+    
     assert response.status_code == 200, f"Failed to load data: {response.status_code}"
-    assert "text/csv" in response.headers["content-type"], "Response is not in CSV format"
-
-    # Use StringIO to handle the response content as a file-like object
-    csv_content = StringIO(response.content.decode('utf-8'))
-    df = pd.read_csv(csv_content)
+    assert "application/octet-stream" in response.headers["content-type"], "Response is not in the expected format"
+    
+    # Load the content into a DataFrame
+    parquet_content = BytesIO(response.content)
+    df = pd.read_parquet(parquet_content)
+    
     assert not df.empty, "DataFrame loaded from endpoint is empty"
     assert 'Campaign ID' in df.columns, "Expected column 'Campaign ID' not found in DataFrame"
     assert 'Result Type' in df.columns, "Expected column 'Result Type' not found in DataFrame"
