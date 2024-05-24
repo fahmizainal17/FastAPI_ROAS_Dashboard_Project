@@ -3,7 +3,7 @@ import pytest
 from tests.test_main import app  
 import pandas as pd
 import os
-from io import StringIO
+from io import StringIO, BytesIO
 from dotenv import load_dotenv
 
 

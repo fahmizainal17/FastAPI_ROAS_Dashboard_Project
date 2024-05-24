@@ -31,6 +31,7 @@ def get_storage_config():
 
 router = APIRouter()
 
+# Class to handle S3 data import
 class ImportDataS3:
     def __init__(self, aws_access_key_id: str, aws_secret_access_key: str, bucket_name: str):
         self.s3_client = boto3.client(
@@ -185,14 +186,18 @@ async def load_data(key: str):
         raise HTTPException(status_code=500, detail="Storage configuration is missing.")
     
     s3_storage = ImportDataS3(storage_config['aws_access_key_id'], storage_config['aws_secret_access_key'], storage_config['bucket_name'])
-    parquet_data = s3_storage.load_df(key)
+    df = s3_storage.load_df(key)
+    
+    buffer = BytesIO()
+    df.to_parquet(buffer, index=False)
+    buffer.seek(0)
     
     headers = {
         'Content-Disposition': f'attachment; filename="{key}"',
         'Content-Type': 'application/octet-stream'
     }
     
-    return StreamingResponse(BytesIO(parquet_data), headers=headers, media_type="application/octet-stream")
+    return StreamingResponse(buffer, headers=headers, media_type="application/octet-stream")
 
 #################################################
 # Main Endpoint
