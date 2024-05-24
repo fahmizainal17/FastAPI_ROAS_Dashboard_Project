@@ -28,8 +28,8 @@ def test_filter_dataframe_endpoint():
 def test_get_descriptive_stats_endpoint():
     sample_data2 = {
         "data": [
-            {"Cost per Result": 10, "Cost per Mile": 200, "Result Type": "Likes"},
-            {"Cost per Result": 20, "Cost per Mile": 300, "Result Type": "Likes"}
+            {"Result Type": "Likes", "Min CPM": 200.0, "Median CPM": 220.0, "Max CPM": 240.0, "Min CPR": 10.0, "Median CPR": 12.0, "Max CPR": 14.0},
+            {"Result Type": "Likes", "Min CPM": 300.0, "Median CPM": 320.0, "Max CPM": 340.0, "Min CPR": 20.0, "Median CPR": 22.0, "Max CPR": 24.0}
         ]
     }
     response = client.post("/first_page/get_descriptive_stats", json=sample_data2)
@@ -89,7 +89,7 @@ def test_main_endpoint(sample_data):
         "filter_options": {}
     }
     
-    response = client.post("/main", json=filter_input)
+    response = client.post("/first_page/main", json=filter_input)
     assert response.status_code == 200
     filtered_df = response.json()
     assert filtered_df is not None
