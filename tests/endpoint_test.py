@@ -11,12 +11,6 @@ load_dotenv()
 
 client = TestClient(app)
 
-# Test the welcome page endpoint
-def test_welcome_page():
-    response = client.get("/")
-    assert response.status_code == 200
-    assert "Welcome to FastAPI For ROAS Dashboard" in response.text
-
 def test_filter_dataframe_endpoint():
     sample_data = {
         "data": [

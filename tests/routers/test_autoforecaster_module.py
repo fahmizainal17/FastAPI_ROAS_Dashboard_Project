@@ -57,49 +57,6 @@ class importDataS3:
             logger.error(f"Failed to load data from S3: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Error loading data from S3: {str(e)}") from e
 
-#################################################
-# Welcome Page Endpoint
-#################################################
-
-@router.get("/", response_class=HTMLResponse, summary="Welcome_Page", tags=["Root_Of_FastAPI_Application"])
-def root():
-    html_content = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Welcome to FastAPI For ROAS Dashboard</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                background-color: #f4f4f4;
-                margin: 0;
-                padding: 0;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-            }
-            .container {
-                text-align: center;
-            }
-            h1 {
-                color: #333;
-            }
-            p {
-                color: #666;
-                font-size: 18px;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>Welcome to FastAPI For ROAS Dashboard!</h1>
-            <p>Thank you for visiting. This is the root of the application.</p>
-        </div>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
 
 #################################################
 # Filter Dataframe Endpoint
