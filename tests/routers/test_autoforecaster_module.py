@@ -203,7 +203,7 @@ async def load_data(key: str):
 # Main Endpoint
 #################################################
 
-@router.post("/main")
+@router.post("/main", response_model=list)
 def main():
     df_unfiltered = load_campaigns_df()
     filter_input = FilterInput(data=df_unfiltered.to_dict(orient='records'), filter_options={})
