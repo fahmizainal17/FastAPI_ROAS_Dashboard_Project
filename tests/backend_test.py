@@ -3,17 +3,12 @@ import pytest
 import pandas as pd
 from dotenv import load_dotenv
 from datetime import datetime
-from tests.routers.test_autoforecaster_module import filter_dataframe, get_descriptive_stats, FilterInput, ImportDataS3, get_storage_config, load_campaigns_df, get_forecast_by_value
+from tests.routers.test_autoforecaster_module import filter_dataframe, get_descriptive_stats, FilterInput, get_storage_config, load_campaigns_df, get_forecast_by_value
+from tests.routers.load_exp_data_utils import ImportDataS3, load_clients_df, load_roas_df, load_campaigns_df, load_adsets_df, convert_df, load_feedback_form 
+from tests.routers.miscellaneous_utils import round_to_two_decimal_places_with_min 
 
 # Load environment variables from .env file
 load_dotenv()
-
-def get_storage_config():
-    return {
-        "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),
-        "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
-        "bucket_name": os.getenv("S3_BUCKET_NAME")
-    }
 
 @pytest.fixture
 def sample_data():
@@ -102,8 +97,12 @@ def test_get_forecast_by_value2(sample_data_descriptive2):
 
 def test_main():
     df_unfiltered = load_campaigns_df()
+    print("df_unfiltered")
+    print(df_unfiltered)  # Debugging statement to inspect the DataFrame
     filter_input = FilterInput(data=df_unfiltered.to_dict(orient='records'), filter_options={})
     filtered_df = filter_dataframe(pd.DataFrame(filter_input.data), filter_input.filter_options)
+    print("filtered_df")
+    print(filtered_df)  # Debugging statement to inspect the filtered DataFrame
     assert filtered_df is not None
     assert len(filtered_df) > 0
 
@@ -144,8 +143,19 @@ def test_campaign_data_handling(campaign_data):
     assert 'Start Date' in campaign_data.columns
     assert 'Stop Date' in campaign_data.columns
 
+def get_storage_config():
+    return {
+        "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),
+        "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
+        "bucket_name": os.getenv("S3_BUCKET_NAME")
+    }
+
 def test_load_data_from_s3():
     storage_config = get_storage_config()
+    print("AWS_ACCESS_KEY_ID:", storage_config['aws_access_key_id'])  # Debugging statement
+    print("AWS_SECRET_ACCESS_KEY:", storage_config['aws_secret_access_key'])  # Debugging statement
+    print("BUCKET_NAME:", storage_config['bucket_name'])  # Debugging statement
+
     assert storage_config['aws_access_key_id'] is not None, "AWS_ACCESS_KEY_ID is not set in .env"
     assert storage_config['aws_secret_access_key'] is not None, "AWS_SECRET_ACCESS_KEY is not set in .env"
     assert storage_config['bucket_name'] is not None, "BUCKET_NAME is not set in .env"
@@ -157,6 +167,7 @@ def test_load_data_from_s3():
     assert not df.empty, "DataFrame loaded from S3 is empty"
     assert 'Campaign ID' in df.columns, "Expected column 'Campaign ID' not found in DataFrame"
     assert 'Result Type' in df.columns, "Expected column 'Result Type' not found in DataFrame"
+
 
 # Running the tests directly if this file is executed
 if __name__ == "__main__":

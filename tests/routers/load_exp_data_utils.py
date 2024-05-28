@@ -5,6 +5,18 @@ import boto3
 from botocore.client import Config
 from botocore.exceptions import NoCredentialsError
 from io import BytesIO
+from dotenv import load_dotenv
+from datetime import datetime
+
+# Load environment variables from .env file
+load_dotenv()
+
+def get_storage_config():
+    return {
+        "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),
+        "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
+        "bucket_name": os.getenv("S3_BUCKET_NAME")
+    }
 
 class ImportDataS3:
     """Class to load data from AWS S3"""
@@ -54,15 +66,28 @@ def load_roas_df() -> pd.DataFrame:
     df['Stop Date'] = pd.to_datetime(df['Stop Date'], format='%Y-%m-%d')
     return df.sort_values(['Start Date'], ascending=False)
 
+
 def load_campaigns_df() -> pd.DataFrame:
     """Loads the Campaigns dataframe."""
     df = decoris_dl.load_df('campaign_final.parquet')
     df['Campaign ID'] = df['Campaign ID'].astype('string')
     df['Result Type'] = df['Result Type'].str.replace('_', ' ').str.title()
     df['Ads Objective'] = df['Ads Objective'].str.replace('_', ' ').str.title()
-    df['Start Date'] = pd.to_datetime(df['Start Date'], format='%Y-%m-%d')
-    df['Stop Date'] = pd.to_datetime(df['Stop Date'], format='%Y-%m-%d')
+    
+    # Convert dates with error handling
+    df['Start Date'] = pd.to_datetime(df['Start Date'], format='%Y-%m-%d', errors='coerce', dayfirst=True)
+    df['Stop Date'] = pd.to_datetime(df['Stop Date'], format='%Y-%m-%d', errors='coerce', dayfirst=True)
+
+    # Fill NaT with default dates
+    df['Start Date'] = df['Start Date'].fillna('2019-01-01')
+    df['Stop Date'] = df['Stop Date'].fillna(datetime.today().strftime('%Y-%m-%d'))
+    
+    # Ensure dates are in a format that is JSON serializable
+    df['Start Date'] = df['Start Date'].dt.strftime('%Y-%m-%d')
+    df['Stop Date'] = df['Stop Date'].dt.strftime('%Y-%m-%d')
+
     return df.sort_values(['Start Date'], ascending=False)
+
 
 def load_adsets_df() -> pd.DataFrame:
     """Loads the Adsets dataframe."""
