@@ -116,7 +116,7 @@ def test_load_data_endpoint(test_client):
 def test_main_endpoint():
     df_unfiltered = load_campaigns_df()
     print("df_unfiltered")
-    print(df_unfiltered)  # Debugging statement to inspect the DataFrame
+    print(df_unfiltered.json())  # Debugging statement to inspect the DataFrame
 
     filter_input = {
         "data": df_unfiltered.to_dict(orient='records'),

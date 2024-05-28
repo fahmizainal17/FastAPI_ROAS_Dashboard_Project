@@ -8,7 +8,7 @@ from pydantic import BaseModel
 import os
 import logging
 from io import BytesIO
-from typing import List, Dict, Any
+from typing import List, Dict, Any , Optional
 import numpy as np
 from tests.routers.load_exp_data_utils import ImportDataS3, load_clients_df, load_roas_df, load_campaigns_df, load_adsets_df, convert_df, load_feedback_form, get_storage_config
 from tests.routers.miscellaneous_utils import round_to_two_decimal_places_with_min 
@@ -29,19 +29,74 @@ router = APIRouter()
 # Filter Dataframe Endpoint
 #################################################
 
+# Pagination model
+class Pagination(BaseModel):
+    page: int
+    size: int
+    
 class FilterInput(BaseModel):
     data: list
     filter_options: dict
 
-@router.post("/filter_dataframe", response_model=list)
-def filter_dataframe_endpoint(input: FilterInput):
-    df = pd.DataFrame(input.data)
-    filtered_df = filter_dataframe(df, input.filter_options)
-    return filtered_df.to_dict(orient='records')
+# FilterInput model with pagination
+class FilterInputWithPagination(BaseModel):
+    data: List[Dict[str, Any]]
+    filter_options: Dict[str, Any]
+    pagination: Pagination
 
+# FilteredItem model
+class FilteredItem(BaseModel):
+    Start_Date: str
+    Stop_Date: str
+    Client_Industry: Optional[str]
+    Facebook_Page_Category: str
+    Ads_Objective: str
+    Facebook_Page_Name: str
+    Amount_Spent: float
+    Impressions: int
+    Reach: int
+    Result_Type: str
+    Total_Results: int
+    Cost_per_Result: float
+    Cost_per_Mile: float
+    Campaign_Name: str
+    Campaign_ID: float
+    Account_ID: str
+    Company_Name: Optional[str]
+    Country: Optional[str]
+    Start_Year: int
+    Start_Month: str
+
+# Sample function to load campaign data (dummy implementation)
+def load_campaigns_df() -> pd.DataFrame:
+    # Replace with actual data loading logic
+    data = {
+        'Start_Date': ['2024-03-29'],
+        'Stop_Date': ['2024-04-18'],
+        'Client_Industry': ['Information, Tech & Telecommunications'],
+        'Facebook_Page_Category': ['Community'],
+        'Ads_Objective': ['Outcome Traffic'],
+        'Facebook_Page_Name': ['KITAR'],
+        'Amount_Spent': [16.36],
+        'Impressions': [5757],
+        'Reach': [4118],
+        'Result_Type': ['Impressions'],
+        'Total_Results': [5757],
+        'Cost_per_Result': [0.0028417578599965257],
+        'Cost_per_Mile': [2.841757859996526],
+        'Campaign_Name': ['MCMC KITAR | Traffic | M1 2024 | Zaf'],
+        'Campaign_ID': [120209521159500325.0],
+        'Account_ID': ['act_379859374796069'],
+        'Company_Name': ['KITAR MCMC 2024/2025'],
+        'Country': ['MY'],
+        'Start_Year': [2024],
+        'Start_Month': ['March']
+    }
+    return pd.DataFrame(data)
+
+# Function to filter the dataframe
 def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
     df = df.copy()
-    
     for key, value in options.items():
         if key in df.columns:
             if isinstance(value, list):
@@ -50,6 +105,22 @@ def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
                 df = df[df[key] == value]
     return df
 
+# Endpoint to filter the dataframe with pagination
+@router.post("/filter_dataframe", response_model=List[FilteredItem])
+def filter_dataframe_endpoint(input: FilterInputWithPagination):
+    df = pd.DataFrame(input.data)
+    filtered_df = filter_dataframe(df, input.filter_options)
+    
+    # Implement pagination
+    page = input.pagination.page
+    size = input.pagination.size
+    start = (page - 1) * size
+    end = start + size
+    paginated_df = filtered_df.iloc[start:end]
+    
+    return paginated_df.to_dict(orient='records')
+
+    
 #################################################
 # Get Descriptive Stats Endpoint
 #################################################
@@ -216,11 +287,32 @@ async def load_data(key: str):
 #################################################
 # Main Endpoint
 #################################################
+import logging
 
-@router.post("/main", response_model=list)
+# @router.post("/main", response_model=List[Dict])
+# def main():
+#     df_unfiltered = load_campaigns_df()
+#     filter_input = FilterInput(data=df_unfiltered.to_dict(orient='records'), filter_options={})
+#     filtered_df = filter_dataframe(pd.DataFrame(filter_input.data), filter_input.filter_options)
+    
+#     result = filtered_df.to_dict(orient='records')
+#     logging.info(f"Response data type: {type(result)}")  # Print the type of the result
+#     return result
+
+
+@router.post("/main", response_model=List[Dict])
 def main():
+    logging.info("Loading campaigns data")
     df_unfiltered = load_campaigns_df()
-    filter_input = FilterInput(data=df_unfiltered.to_dict(orient='records'), filter_options={})
-    filtered_df = filter_dataframe(pd.DataFrame(filter_input.data), filter_input.filter_options)
-    return filtered_df.to_dict(orient='records')
+    logging.info(f"Unfiltered DataFrame: {df_unfiltered.head()}")
 
+    filter_input = FilterInput(data=df_unfiltered.to_dict(orient='records'), filter_options={})
+    logging.info(f"FilterInput: {filter_input}")
+
+    filtered_df = filter_dataframe(pd.DataFrame(filter_input.data), filter_input.filter_options)
+    logging.info(f"Filtered DataFrame: {filtered_df.head()}")
+
+    result = filtered_df.to_dict(orient='records')
+    logging.info(f"Response data type: {type(result)}")  # Print the type of the result
+    logging.info(f"Response data: {result[:5]}")  # Log the first few items for brevity
+    return result
