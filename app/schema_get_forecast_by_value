@@ -1,0 +1,46 @@
+{
+  "data": [
+    {
+      "Result Type": "Likes",
+      "Min CPM": 200.0,
+      "Median CPM": 220.0,
+      "Max CPM": 240.0,
+      "Min CPR": 10.0,
+      "Median CPR": 12.0,
+      "Max CPR": 14.0
+    },
+    {
+      "Result Type": "Sales",
+      "Min CPM": 300.0,
+      "Median CPM": 320.0,
+      "Max CPM": 340.0,
+      "Min CPR": 20.0,
+      "Median CPR": 22.0,
+      "Max CPR": 24.0
+    },
+    {
+      "Result Type": "Likes",
+      "Min CPM": 250.0,
+      "Median CPM": 270.0,
+      "Max CPM": 290.0,
+      "Min CPR": 15.0,
+      "Median CPR": 18.0,
+      "Max CPR": 21.0
+    },
+    {
+      "Result Type": "Comments",
+      "Min CPM": 350.0,
+      "Median CPM": 370.0,
+      "Max CPM": 390.0,
+      "Min CPR": 25.0,
+      "Median CPR": 28.0,
+      "Max CPR": 31.0
+    }
+  ],
+  "budget": 1000,
+  "distribution": {
+    "Likes": 40,
+    "Sales": 30,
+    "Comments": 30
+  }
+}

@@ -68,19 +68,29 @@ def sample_data_descriptive2():
     }
     return pd.DataFrame(data)
 
-def test_get_forecast_by_value2(sample_data_descriptive2):
+def test_get_forecast_by_value_endpoint(sample_data_descriptive2):
     budget = 1000
-    
     distribution = {
         'Likes': 40,
         'Sales': 30,
         'Comments': 30
     }
 
-    result = get_forecast_by_value(sample_data_descriptive2, budget, distribution)
+    # Prepare the input data as a dictionary
+    input_data = {
+        "data": sample_data_descriptive2.to_dict(orient='records'),
+        "budget": budget,
+        "distribution": distribution
+    }
+
+    # Send the POST request to the endpoint
+    response = client.post("/first_page/get_forecast_by_value", json=input_data)
+    assert response.status_code == 200, f"Failed to get forecast by value: {response.status_code}"
     
+    result = response.json()
+
     # Check that the result is not empty
-    assert not result.empty
+    assert len(result) > 0, "The result is empty"
 
     # Check that the expected columns are in the result
     expected_columns = [
@@ -93,7 +103,7 @@ def test_get_forecast_by_value2(sample_data_descriptive2):
         'Median Results',
         'Min Results'
     ]
-    assert all(column in result.columns for column in expected_columns)
+    assert all(column in result[0] for column in expected_columns), "Expected columns not found in the result"
 
 def test_main():
     df_unfiltered = load_campaigns_df()
