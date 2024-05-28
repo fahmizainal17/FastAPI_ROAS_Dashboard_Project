@@ -115,7 +115,7 @@ def test_main():
     
     filter_input = {
         "data": df_unfiltered.to_dict(orient='records'),
-        "filter_options": {"Client Industry": "Tech"},
+        "filter_options": {"Client Industry": "Information, Tech & Telecommunications"},
         "pagination": {"page": 1, "size": 10}
     }
     filtered_df = filter_dataframe(pd.DataFrame(filter_input["data"]), filter_input["filter_options"])
