@@ -185,32 +185,32 @@ def get_forecast_by_value(df: pd.DataFrame, budget: float, distribution: dict[st
 
     return df_final
 
-# #################################################
-# # Load Data from AWS S3 Endpoint 
-# #################################################
-# # Its Backend Function is ImportDataS3 & get_storage_config
-# class LoadDataInput(BaseModel):
-#     key: str
+#################################################
+# Load Data from AWS S3 Endpoint 
+#################################################
+# Its Backend Function is ImportDataS3 & get_storage_config
+class LoadDataInput(BaseModel):
+    key: str
 
-# @router.get("/load-data/{key}")
-# async def load_data(key: str):
-#     storage_config = get_storage_config()
-#     if not storage_config['aws_access_key_id'] or not storage_config['aws_secret_access_key']:
-#         raise HTTPException(status_code=500, detail="Storage configuration is missing.")
+@router.get("/load-data/{key}")
+async def load_data(key: str):
+    storage_config = get_storage_config()
+    if not storage_config['aws_access_key_id'] or not storage_config['aws_secret_access_key']:
+        raise HTTPException(status_code=500, detail="Storage configuration is missing.")
     
-#     s3_storage = ImportDataS3(storage_config['aws_access_key_id'], storage_config['aws_secret_access_key'], storage_config['bucket_name'])
-#     df = s3_storage.load_df(key)
+    s3_storage = ImportDataS3(storage_config['aws_access_key_id'], storage_config['aws_secret_access_key'], storage_config['bucket_name'])
+    df = s3_storage.load_df(key)
     
-#     buffer = BytesIO()
-#     df.to_parquet(buffer, index=False)
-#     buffer.seek(0)
+    buffer = BytesIO()
+    df.to_parquet(buffer, index=False)
+    buffer.seek(0)
     
-#     headers = {
-#         'Content-Disposition': f'attachment; filename="{key}"',
-#         'Content-Type': 'application/octet-stream'
-#     }
+    headers = {
+        'Content-Disposition': f'attachment; filename="{key}"',
+        'Content-Type': 'application/octet-stream'
+    }
     
-#     return StreamingResponse(buffer, headers=headers, media_type="application/octet-stream")
+    return StreamingResponse(buffer, headers=headers, media_type="application/octet-stream")
 
 
 #################################################

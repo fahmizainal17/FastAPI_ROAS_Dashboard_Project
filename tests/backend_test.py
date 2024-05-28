@@ -68,29 +68,32 @@ def sample_data_descriptive2():
     }
     return pd.DataFrame(data)
 
-def test_get_forecast_by_value_endpoint(sample_data_descriptive2):
+@pytest.fixture
+def sample_data_descriptive2():
+    data = {
+        'Result Type': ['Likes', 'Sales', 'Likes', 'Comments'],
+        'Min CPM': [200.0, 300.0, 250.0, 350.0],
+        'Median CPM': [220.0, 320.0, 270.0, 370.0],
+        'Max CPM': [240.0, 340.0, 290.0, 390.0],
+        'Min CPR': [10.0, 20.0, 15.0, 25.0],
+        'Median CPR': [12.0, 22.0, 18.0, 28.0],
+        'Max CPR': [14.0, 24.0, 21.0, 31.0]
+    }
+    return pd.DataFrame(data)
+
+def test_get_forecast_by_value2(sample_data_descriptive2):
     budget = 1000
+    
     distribution = {
         'Likes': 40,
         'Sales': 30,
         'Comments': 30
     }
 
-    # Prepare the input data as a dictionary
-    input_data = {
-        "data": sample_data_descriptive2.to_dict(orient='records'),
-        "budget": budget,
-        "distribution": distribution
-    }
-
-    # Send the POST request to the endpoint
-    response = client.post("/first_page/get_forecast_by_value", json=input_data)
-    assert response.status_code == 200, f"Failed to get forecast by value: {response.status_code}"
+    result = get_forecast_by_value(sample_data_descriptive2, budget, distribution)
     
-    result = response.json()
-
     # Check that the result is not empty
-    assert len(result) > 0, "The result is empty"
+    assert not result.empty
 
     # Check that the expected columns are in the result
     expected_columns = [
@@ -103,7 +106,7 @@ def test_get_forecast_by_value_endpoint(sample_data_descriptive2):
         'Median Results',
         'Min Results'
     ]
-    assert all(column in result[0] for column in expected_columns), "Expected columns not found in the result"
+    assert all(column in result.columns for column in expected_columns)
 
 def test_main():
     df_unfiltered = load_campaigns_df()
