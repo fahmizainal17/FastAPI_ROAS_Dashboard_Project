@@ -17,15 +17,59 @@ client = TestClient(app)
 def test_filter_dataframe_endpoint():
     sample_data1 = {
         "data": [
-            {"Client Industry": "Tech", "Facebook Page Name": "Tech Innovations", "Facebook Page Category": "Business", "Ads Objective": "Awareness", "Start Year": 2020, "Result Type": "Likes", "Country": "USA"},
-            {"Client Industry": "Health", "Facebook Page Name": "Health Innovations", "Facebook Page Category": "Medical", "Ads Objective": "Conversion", "Start Year": 2021, "Result Type": "Sales", "Country": "Canada"}
+            {
+                "Start_Date": "2023-01-01",
+                "Stop_Date": "2023-01-31",
+                "Client_Industry": "Tech",
+                "Facebook_Page_Name": "Tech Innovations",
+                "Facebook_Page_Category": "Business",
+                "Ads_Objective": "Awareness",
+                "Amount_Spent": 1000.0,
+                "Impressions": 100000,
+                "Reach": 50000,
+                "Result_Type": "Likes",
+                "Total_Results": 1000,
+                "Cost_per_Result": 1.0,
+                "Cost_per_Mile": 10.0,
+                "Campaign_Name": "Tech Campaign",
+                "Campaign_ID": 12345,
+                "Account_ID": "abc123",
+                "Company_Name": "Tech Innovations Inc",
+                "Country": "USA",
+                "Start_Year": 2023,
+                "Start_Month": "January"
+            },
+            {
+                "Start_Date": "2023-02-01",
+                "Stop_Date": "2023-02-28",
+                "Client_Industry": "Health",
+                "Facebook_Page_Name": "Health Innovations",
+                "Facebook_Page_Category": "Medical",
+                "Ads_Objective": "Conversion",
+                "Amount_Spent": 2000.0,
+                "Impressions": 200000,
+                "Reach": 100000,
+                "Result_Type": "Sales",
+                "Total_Results": 2000,
+                "Cost_per_Result": 1.0,
+                "Cost_per_Mile": 10.0,
+                "Campaign_Name": "Health Campaign",
+                "Campaign_ID": 67890,
+                "Account_ID": "def456",
+                "Company_Name": "Health Innovations Inc",
+                "Country": "Canada",
+                "Start_Year": 2023,
+                "Start_Month": "February"
+            }
         ],
-        "filter_options": {"Client Industry": "Tech"}
+        "filter_options": {"Client_Industry": "Tech"},
+        "pagination": {"page": 1, "size": 10}
     }
     response = client.post("/first_page/filter_dataframe", json=sample_data1)
     assert response.status_code == 200
     filtered_data = response.json()
-    assert all(item["Client Industry"] == "Tech" for item in filtered_data)
+    assert all(item["Client_Industry"] == "Tech" for item in filtered_data)
+
 
 def test_get_descriptive_stats_endpoint():
     sample_data2 = {
@@ -116,11 +160,12 @@ def test_load_data_endpoint(test_client):
 def test_main_endpoint():
     df_unfiltered = load_campaigns_df()
     print("df_unfiltered")
-    print(df_unfiltered.json())  # Debugging statement to inspect the DataFrame
-
+    print(df_unfiltered.head())  # Debugging statement to inspect the DataFrame
+    
     filter_input = {
         "data": df_unfiltered.to_dict(orient='records'),
-        "filter_options": {"Client Industry": "Tech"}
+        "filter_options": {"Client Industry": "Information, Tech & Telecommunications"},
+        "pagination": {"page": 1, "size": 10}
     }
     response = client.post("/first_page/main", json=filter_input)
     assert response.status_code == 200
@@ -129,6 +174,8 @@ def test_main_endpoint():
     print(filtered_df)  # Debugging statement to inspect the filtered DataFrame
     assert filtered_df is not None
     assert len(filtered_df) > 0
+
+
 
 if __name__ == "__main__":
     pytest.main()

@@ -111,11 +111,16 @@ def test_get_forecast_by_value2(sample_data_descriptive2):
 def test_main():
     df_unfiltered = load_campaigns_df()
     print("df_unfiltered")
-    print(df_unfiltered)  # Debugging statement to inspect the DataFrame
-    filter_input = FilterInput(data=df_unfiltered.to_dict(orient='records'), filter_options={})
-    filtered_df = filter_dataframe(pd.DataFrame(filter_input.data), filter_input.filter_options)
+    print(df_unfiltered.head())  # Debugging statement to inspect the DataFrame
+    
+    filter_input = {
+        "data": df_unfiltered.to_dict(orient='records'),
+        "filter_options": {"Client Industry": "Tech"},
+        "pagination": {"page": 1, "size": 10}
+    }
+    filtered_df = filter_dataframe(pd.DataFrame(filter_input["data"]), filter_input["filter_options"])
     print("filtered_df")
-    print(filtered_df)  # Debugging statement to inspect the filtered DataFrame
+    print(filtered_df.head())  # Debugging statement to inspect the filtered DataFrame
     assert filtered_df is not None
     assert len(filtered_df) > 0
 

@@ -33,7 +33,7 @@ router = APIRouter()
 class Pagination(BaseModel):
     page: int
     size: int
-    
+
 class FilterInput(BaseModel):
     data: list
     filter_options: dict
@@ -67,34 +67,6 @@ class FilteredItem(BaseModel):
     Start_Year: int
     Start_Month: str
 
-# Sample function to load campaign data (dummy implementation)
-def load_campaigns_df() -> pd.DataFrame:
-    # Replace with actual data loading logic
-    data = {
-        'Start_Date': ['2024-03-29'],
-        'Stop_Date': ['2024-04-18'],
-        'Client_Industry': ['Information, Tech & Telecommunications'],
-        'Facebook_Page_Category': ['Community'],
-        'Ads_Objective': ['Outcome Traffic'],
-        'Facebook_Page_Name': ['KITAR'],
-        'Amount_Spent': [16.36],
-        'Impressions': [5757],
-        'Reach': [4118],
-        'Result_Type': ['Impressions'],
-        'Total_Results': [5757],
-        'Cost_per_Result': [0.0028417578599965257],
-        'Cost_per_Mile': [2.841757859996526],
-        'Campaign_Name': ['MCMC KITAR | Traffic | M1 2024 | Zaf'],
-        'Campaign_ID': [120209521159500325.0],
-        'Account_ID': ['act_379859374796069'],
-        'Company_Name': ['KITAR MCMC 2024/2025'],
-        'Country': ['MY'],
-        'Start_Year': [2024],
-        'Start_Month': ['March']
-    }
-    return pd.DataFrame(data)
-
-# Function to filter the dataframe
 def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
     df = df.copy()
     for key, value in options.items():
@@ -105,18 +77,37 @@ def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
                 df = df[df[key] == value]
     return df
 
+def complete_filtered_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    required_fields = [
+        "Start_Date", "Stop_Date", "Client_Industry", "Facebook_Page_Category", 
+        "Ads_Objective", "Facebook_Page_Name", "Amount_Spent", "Impressions", 
+        "Reach", "Result_Type", "Total_Results", "Cost_per_Result", "Cost_per_Mile", 
+        "Campaign_Name", "Campaign_ID", "Account_ID", "Company_Name", "Country", 
+        "Start_Year", "Start_Month"
+    ]
+    
+    # Adding default values for missing fields
+    for field in required_fields:
+        if field not in df.columns:
+            df[field] = None  # or appropriate default values
+    
+    return df
+
 # Endpoint to filter the dataframe with pagination
 @router.post("/filter_dataframe", response_model=List[FilteredItem])
 def filter_dataframe_endpoint(input: FilterInputWithPagination):
     df = pd.DataFrame(input.data)
     filtered_df = filter_dataframe(df, input.filter_options)
     
+    # Ensure the dataframe has all necessary fields
+    complete_df = complete_filtered_dataframe(filtered_df)
+    
     # Implement pagination
     page = input.pagination.page
     size = input.pagination.size
     start = (page - 1) * size
     end = start + size
-    paginated_df = filtered_df.iloc[start:end]
+    paginated_df = complete_df.iloc[start:end]
     
     return paginated_df.to_dict(orient='records')
 
@@ -299,20 +290,40 @@ import logging
 #     logging.info(f"Response data type: {type(result)}")  # Print the type of the result
 #     return result
 
+# FilterInput model with pagination
+
+class Pagination(BaseModel):
+    page: int
+    size: int
+
+class FilterInput(BaseModel):
+    data: List[Dict[str, Any]]
+    filter_options: Dict[str, Any]
+    pagination: Pagination
+
 
 @router.post("/main", response_model=List[Dict])
-def main():
+def main(input: FilterInputWithPagination):
     logging.info("Loading campaigns data")
-    df_unfiltered = load_campaigns_df()
+    df_unfiltered = pd.DataFrame(input.data)
     logging.info(f"Unfiltered DataFrame: {df_unfiltered.head()}")
 
-    filter_input = FilterInput(data=df_unfiltered.to_dict(orient='records'), filter_options={})
-    logging.info(f"FilterInput: {filter_input}")
-
-    filtered_df = filter_dataframe(pd.DataFrame(filter_input.data), filter_input.filter_options)
+    logging.info(f"Filter options: {input.filter_options}")
+    filtered_df = filter_dataframe(df_unfiltered, input.filter_options)
     logging.info(f"Filtered DataFrame: {filtered_df.head()}")
 
-    result = filtered_df.to_dict(orient='records')
+    # Ensure the dataframe has all necessary fields
+    complete_df = complete_filtered_dataframe(filtered_df)
+    logging.info(f"Complete DataFrame: {complete_df.head()}")
+    
+    # Implement pagination
+    page = input.pagination.page
+    size = input.pagination.size
+    start = (page - 1) * size
+    end = start + size
+    paginated_df = complete_df.iloc[start:end]
+    
+    result = paginated_df.to_dict(orient='records')
     logging.info(f"Response data type: {type(result)}")  # Print the type of the result
     logging.info(f"Response data: {result[:5]}")  # Log the first few items for brevity
     return result
