@@ -176,6 +176,5 @@ def test_main_endpoint():
     assert len(filtered_df) > 0
 
 
-
 if __name__ == "__main__":
     pytest.main()
