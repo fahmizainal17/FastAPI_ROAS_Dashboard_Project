@@ -74,8 +74,28 @@ def test_filter_dataframe_endpoint():
 def test_get_descriptive_stats_endpoint():
     sample_data2 = {
         "data": [
-            {"Result Type": "Likes", "Min CPM": 200.0, "Median CPM": 220.0, "Max CPM": 240.0, "Min CPR": 10.0, "Median CPR": 12.0, "Max CPR": 14.0},
-            {"Result Type": "Likes", "Min CPM": 300.0, "Median CPM": 320.0, "Max CPM": 340.0, "Min CPR": 20.0, "Median CPR": 22.0, "Max CPR": 24.0}
+            {
+                "Result Type": "Likes",
+                "Min CPM": 200.0,
+                "Median CPM": 220.0,
+                "Max CPM": 240.0,
+                "Min CPR": 10.0,
+                "Median CPR": 12.0,
+                "Max CPR": 14.0,
+                "Cost per Result": 1.0,
+                "Cost per Mile": 0.5
+            },
+            {
+                "Result Type": "Likes",
+                "Min CPM": 300.0,
+                "Median CPM": 320.0,
+                "Max CPM": 340.0,
+                "Min CPR": 20.0,
+                "Median CPR": 22.0,
+                "Max CPR": 24.0,
+                "Cost per Result": 1.5,
+                "Cost per Mile": 0.75
+            }
         ]
     }
     response = client.post("/first_page/get_descriptive_stats", json=sample_data2)
@@ -84,7 +104,6 @@ def test_get_descriptive_stats_endpoint():
     assert 'Min CPR' in stats[0]
     assert 'Max CPR' in stats[0]
     assert stats[0]['Min CPR'] <= stats[0]['Max CPR']
-
 
 @pytest.fixture
 def sample_data_descriptive2():
@@ -159,21 +178,26 @@ def test_load_data_endpoint(test_client):
 
 def test_main_endpoint():
     df_unfiltered = load_campaigns_df()
-    print("df_unfiltered")
+    print("Unfiltered DataFrame Columns:")
+    print(df_unfiltered.columns)  # Debugging statement to inspect columns
+
+    print("Unfiltered DataFrame:")
     print(df_unfiltered.head())  # Debugging statement to inspect the DataFrame
-    
+
     filter_input = {
         "data": df_unfiltered.to_dict(orient='records'),
         "filter_options": {"Client Industry": "Information, Tech & Telecommunications"},
         "pagination": {"page": 1, "size": 10}
     }
+
     response = client.post("/first_page/main", json=filter_input)
     assert response.status_code == 200
-    print("filtered_df")
     filtered_df = response.json()
+    print("Filtered DataFrame:")
     print(filtered_df)  # Debugging statement to inspect the filtered DataFrame
+
     assert filtered_df is not None
-    assert len(filtered_df) > 0
+    assert len(filtered_df) > 0, "Filtered DataFrame is empty"
 
 
 if __name__ == "__main__":

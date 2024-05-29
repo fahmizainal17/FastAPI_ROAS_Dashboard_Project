@@ -45,13 +45,15 @@ def sample_data_descriptive():
         'Max CPM': [240.0, 340.0, 290.0, 390.0],
         'Min CPR': [10.0, 20.0, 15.0, 25.0],
         'Median CPR': [12.0, 22.0, 18.0, 28.0],
-        'Max CPR': [14.0, 24.0, 21.0, 31.0]
+        'Max CPR': [14.0, 24.0, 21.0, 31.0],
+        'Cost per Result': [1.0, 2.0, 1.5, 2.5],
+        'Cost per Mile': [0.5, 1.0, 0.75, 1.25]
     }
     return pd.DataFrame(data)
 
 def test_get_descriptive_stats(sample_data_descriptive):
     result = get_descriptive_stats(sample_data_descriptive)
-    expected_columns = {'Min CPR', 'Median CPR', 'Max CPR', 'Min CPM', 'Median CPM', 'Max CPM'}
+    expected_columns = {'Min CPR', 'Median CPR', 'Max CPR', 'Min CPM', 'Median CPM', 'Max CPM', 'No. of Campaigns'}
     assert set(result.columns).intersection(expected_columns) == expected_columns
     assert not result.empty
 
@@ -64,26 +66,14 @@ def sample_data_descriptive2():
         'Max CPM': [240.0, 340.0, 290.0, 390.0],
         'Min CPR': [10.0, 20.0, 15.0, 25.0],
         'Median CPR': [12.0, 22.0, 18.0, 28.0],
-        'Max CPR': [14.0, 24.0, 21.0, 31.0]
-    }
-    return pd.DataFrame(data)
-
-@pytest.fixture
-def sample_data_descriptive2():
-    data = {
-        'Result Type': ['Likes', 'Sales', 'Likes', 'Comments'],
-        'Min CPM': [200.0, 300.0, 250.0, 350.0],
-        'Median CPM': [220.0, 320.0, 270.0, 370.0],
-        'Max CPM': [240.0, 340.0, 290.0, 390.0],
-        'Min CPR': [10.0, 20.0, 15.0, 25.0],
-        'Median CPR': [12.0, 22.0, 18.0, 28.0],
-        'Max CPR': [14.0, 24.0, 21.0, 31.0]
+        'Max CPR': [14.0, 24.0, 21.0, 31.0],
+        'Cost per Result': [1.0, 2.0, 1.5, 2.5],
+        'Cost per Mile': [0.5, 1.0, 0.75, 1.25]
     }
     return pd.DataFrame(data)
 
 def test_get_forecast_by_value2(sample_data_descriptive2):
     budget = 1000
-    
     distribution = {
         'Likes': 40,
         'Sales': 30,

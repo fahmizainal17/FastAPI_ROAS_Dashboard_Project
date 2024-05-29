@@ -92,6 +92,7 @@ def filter_dataframe_endpoint(input: FilterInputWithPagination):
     
     return paginated_df.to_dict(orient='records')
 
+
 #################################################
 # Get Descriptive Stats Endpoint
 #################################################
@@ -102,6 +103,7 @@ class StatsInput(BaseModel):
 @router.post("/get_descriptive_stats", response_model=List[Dict[str, Any]])
 def get_descriptive_stats_endpoint(input: StatsInput):
     df = pd.DataFrame(input.data)
+    logging.info(f"DataFrame Columns before stats calculation: {df.columns}")
     return get_descriptive_stats(df).to_dict(orient='records')
 
 def get_descriptive_stats(df: pd.DataFrame) -> pd.DataFrame:
@@ -116,6 +118,7 @@ def get_descriptive_stats(df: pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: A DataFrame with descriptive statistics.
     """
     df = df.copy()
+    logging.info(f"DataFrame Columns in get_descriptive_stats: {df.columns}")
     
     if 'Cost per Result' not in df.columns or 'Cost per Mile' not in df.columns:
         raise ValueError("Required columns 'Cost per Result' or 'Cost per Mile' are missing from the DataFrame.")
@@ -159,7 +162,6 @@ def get_descriptive_stats(df: pd.DataFrame) -> pd.DataFrame:
     df_best_roas_sets = pd.concat(best_campaign_sets)
     return df_best_roas_sets
 
-
 #################################################
 # Get Forecast By Value Endpoint
 #################################################
@@ -174,20 +176,20 @@ def get_forecast_by_value_endpoint(input: ForecastInput):
     df = pd.DataFrame(input.data)
     return get_forecast_by_value(df, input.budget, input.distribution).to_dict(orient='records')
 
-def get_forecast_by_value(df: pd.DataFrame) -> pd.DataFrame:
+def get_forecast_by_value(df: pd.DataFrame, budget: float, distribution: Dict[str, int]) -> pd.DataFrame:
     """
     Function that uses the output dataframe from `get_descriptive_stats()`
     to calculate projections of campaign results for Impressions and Results.
 
     Args:
         df (pd.DataFrame): The output pandas dataframe from `get_descriptive_stats()`.
+        budget (float): The budget to be allocated for the campaigns.
+        distribution (Dict[str, int]): Distribution of budget among different result types.
 
     Returns:
         pd.DataFrame: A dataframe with forecasted metrics.
     """
     df = df.copy()
-
-    budget = 100.00  # Placeholder for the budget value. Replace with actual budget input as needed.
 
     result_dict = {
         'Result Type': [],
@@ -195,7 +197,7 @@ def get_forecast_by_value(df: pd.DataFrame) -> pd.DataFrame:
     }
     for result_type in df['Result Type'].unique():
         result_dict['Result Type'].append(result_type)
-        result_dict['Distribution (%)'].append(25)  # Placeholder for distribution percentage. Replace as needed.
+        result_dict['Distribution (%)'].append(distribution.get(result_type, 0))
 
     df_money = pd.DataFrame(result_dict)
     df_money['Ad Spent'] = (df_money['Distribution (%)'] / 100) * budget
@@ -254,30 +256,29 @@ async def load_data(key: str):
 #################################################
 # Main Endpoint
 #################################################
-import logging
 
-# @router.post("/main", response_model=List[Dict])
-# def main():
-#     df_unfiltered = load_campaigns_df()
-#     filter_input = FilterInput(data=df_unfiltered.to_dict(orient='records'), filter_options={})
-#     filtered_df = filter_dataframe(pd.DataFrame(filter_input.data), filter_input.filter_options)
-    
-#     result = filtered_df.to_dict(orient='records')
-#     logging.info(f"Response data type: {type(result)}")  # Print the type of the result
-#     return result
-
-# FilterInput model with pagination
-
+# Models for input data
 class Pagination(BaseModel):
     page: int
     size: int
 
-class FilterInput(BaseModel):
+class FilterInputWithPagination(BaseModel):
     data: List[Dict[str, Any]]
     filter_options: Dict[str, Any]
     pagination: Pagination
 
-
+# Function to filter the dataframe
+def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
+    df = df.copy()
+    for key, value in options.items():
+        if key in df.columns:
+            if isinstance(value, list):
+                df = df[df[key].isin(value)]
+            else:
+                df = df[df[key] == value]
+    return df
+    
+# Endpoint to filter data with pagination
 @router.post("/main", response_model=List[Dict])
 def main(input: FilterInputWithPagination):
     logging.info("Loading campaigns data")
@@ -293,7 +294,7 @@ def main(input: FilterInputWithPagination):
     size = input.pagination.size
     start = (page - 1) * size
     end = start + size
-    paginated_df = complete_df.iloc[start:end]
+    paginated_df = filtered_df.iloc[start:end]
     
     result = paginated_df.to_dict(orient='records')
     logging.info(f"Response data type: {type(result)}")  # Print the type of the result
