@@ -28,4 +28,4 @@ WORKDIR /
 EXPOSE 80
 
 # Command to run the application
-CMD ["uvicorn", "tests.test_main:app", "--reload", "--host", "0.0.0.0", "--port", "80"]
+CMD ["uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "80"]
