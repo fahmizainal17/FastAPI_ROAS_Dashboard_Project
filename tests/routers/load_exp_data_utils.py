@@ -86,7 +86,16 @@ def load_campaigns_df() -> pd.DataFrame:
     df['Start Date'] = df['Start Date'].dt.strftime('%Y-%m-%d')
     df['Stop Date'] = df['Stop Date'].dt.strftime('%Y-%m-%d')
 
+    # Convert 'Cost per Result' and 'Cost per Mile' to numeric
+    df['Cost per Result'] = pd.to_numeric(df['Cost per Result'], errors='coerce')
+    df['Cost per Mile'] = pd.to_numeric(df['Cost per Mile'], errors='coerce')
+
+    # Add missing column if necessary
+    if 'Median CPR' not in df.columns:
+        df['Median CPR'] = 0  # or some default value
+
     return df.sort_values(['Start Date'], ascending=False)
+
 
 
 def load_adsets_df() -> pd.DataFrame:

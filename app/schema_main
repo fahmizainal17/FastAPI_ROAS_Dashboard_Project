@@ -1,0 +1,50 @@
+{
+        "data": [
+            {
+                "Start_Date": "2023-01-01",
+                "Stop_Date": "2023-01-31",
+                "Client_Industry": "Tech",
+                "Facebook_Page_Name": "Tech Innovations",
+                "Facebook_Page_Category": "Business",
+                "Ads_Objective": "Awareness",
+                "Amount_Spent": 1000.0,
+                "Impressions": 100000,
+                "Reach": 50000,
+                "Result_Type": "Likes",
+                "Total_Results": 1000,
+                "Cost_per_Result": 1.0,
+                "Cost_per_Mile": 10.0,
+                "Campaign_Name": "Tech Campaign",
+                "Campaign_ID": 12345,
+                "Account_ID": "abc123",
+                "Company_Name": "Tech Innovations Inc",
+                "Country": "USA",
+                "Start_Year": 2023,
+                "Start_Month": "January"
+            },
+            {
+                "Start_Date": "2023-02-01",
+                "Stop_Date": "2023-02-28",
+                "Client_Industry": "Health",
+                "Facebook_Page_Name": "Health Innovations",
+                "Facebook_Page_Category": "Medical",
+                "Ads_Objective": "Conversion",
+                "Amount_Spent": 2000.0,
+                "Impressions": 200000,
+                "Reach": 100000,
+                "Result_Type": "Sales",
+                "Total_Results": 2000,
+                "Cost_per_Result": 1.0,
+                "Cost_per_Mile": 10.0,
+                "Campaign_Name": "Health Campaign",
+                "Campaign_ID": 67890,
+                "Account_ID": "def456",
+                "Company_Name": "Health Innovations Inc",
+                "Country": "Canada",
+                "Start_Year": 2023,
+                "Start_Month": "February"
+            }
+        ],
+        "filter_options": {"Client_Industry": "Tech"},
+        "pagination": {"page": 1, "size": 10}
+    }

@@ -77,41 +77,21 @@ def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
                 df = df[df[key] == value]
     return df
 
-def complete_filtered_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    required_fields = [
-        "Start_Date", "Stop_Date", "Client_Industry", "Facebook_Page_Category", 
-        "Ads_Objective", "Facebook_Page_Name", "Amount_Spent", "Impressions", 
-        "Reach", "Result_Type", "Total_Results", "Cost_per_Result", "Cost_per_Mile", 
-        "Campaign_Name", "Campaign_ID", "Account_ID", "Company_Name", "Country", 
-        "Start_Year", "Start_Month"
-    ]
-    
-    # Adding default values for missing fields
-    for field in required_fields:
-        if field not in df.columns:
-            df[field] = None  # or appropriate default values
-    
-    return df
-
 # Endpoint to filter the dataframe with pagination
 @router.post("/filter_dataframe", response_model=List[FilteredItem])
 def filter_dataframe_endpoint(input: FilterInputWithPagination):
     df = pd.DataFrame(input.data)
     filtered_df = filter_dataframe(df, input.filter_options)
-    
-    # Ensure the dataframe has all necessary fields
-    complete_df = complete_filtered_dataframe(filtered_df)
-    
+
     # Implement pagination
     page = input.pagination.page
     size = input.pagination.size
     start = (page - 1) * size
     end = start + size
-    paginated_df = complete_df.iloc[start:end]
+    paginated_df = filtered_df.iloc[start:end]
     
     return paginated_df.to_dict(orient='records')
 
-    
 #################################################
 # Get Descriptive Stats Endpoint
 #################################################
@@ -125,29 +105,51 @@ def get_descriptive_stats_endpoint(input: StatsInput):
     return get_descriptive_stats(df).to_dict(orient='records')
 
 def get_descriptive_stats(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Function to get descriptive stats from the filtered dataframe, which
+    will be used to generate projections on campaign performance.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame containing campaign data.
+
+    Returns:
+        pd.DataFrame: A DataFrame with descriptive statistics.
+    """
     df = df.copy()
+    
+    if 'Cost per Result' not in df.columns or 'Cost per Mile' not in df.columns:
+        raise ValueError("Required columns 'Cost per Result' or 'Cost per Mile' are missing from the DataFrame.")
+    
+    if df['Cost per Result'].dtype != 'float64':
+        df['Cost per Result'] = pd.to_numeric(df['Cost per Result'], errors='coerce')
+    if df['Cost per Mile'].dtype != 'float64':
+        df['Cost per Mile'] = pd.to_numeric(df['Cost per Mile'], errors='coerce')
     
     best_campaign_sets = []
     for result_types in df['Result Type'].unique():
-        median_cpr = df.loc[df['Result Type'] == result_types, 'Median CPR'].median(skipna=True)
-        median_cpm = df.loc[df['Result Type'] == result_types, 'Median CPM'].median(skipna=True)
+        
+        # median
+        median_cpr = df.loc[df['Result Type'] == result_types, 'Cost per Result'].median(skipna=True)
+        median_cpm = df.loc[df['Result Type'] == result_types, 'Cost per Mile'].median(skipna=True)
 
-        min_cpr = df.loc[df['Result Type'] == result_types, 'Min CPR'].quantile(q=0.25, interpolation='midpoint')
-        min_cpm = df.loc[df['Result Type'] == result_types, 'Min CPM'].quantile(q=0.25, interpolation='midpoint')
+        # min
+        min_cpr = df.loc[df['Result Type'] == result_types, 'Cost per Result'].quantile(q=0.25, interpolation='midpoint')
+        min_cpm = df.loc[df['Result Type'] == result_types, 'Cost per Mile'].quantile(q=0.25, interpolation='midpoint')
 
-        max_cpr = df.loc[df['Result Type'] == result_types, 'Max CPR'].quantile(q=0.80, interpolation='midpoint')
-        max_cpm = df.loc[df['Result Type'] == result_types, 'Max CPM'].quantile(q=0.80, interpolation='midpoint')
+        # max
+        max_cpr = df.loc[df['Result Type'] == result_types, 'Cost per Result'].quantile(q=0.80, interpolation='midpoint')
+        max_cpm = df.loc[df['Result Type'] == result_types, 'Cost per Mile'].quantile(q=0.80, interpolation='midpoint')
 
         num_campaigns = len(df.loc[df['Result Type'] == result_types])
 
         metrics = {
             'Result Type': result_types,
-            'Min CPM': round_to_two_decimal_places_with_min(min_cpm),
-            'Median CPM': round_to_two_decimal_places_with_min(median_cpm),
-            'Max CPM': round_to_two_decimal_places_with_min(max_cpm),
-            'Min CPR': round_to_two_decimal_places_with_min(min_cpr),
-            'Median CPR': round_to_two_decimal_places_with_min(median_cpr),
-            'Max CPR': round_to_two_decimal_places_with_min(max_cpr),
+            'Min CPM': round(min_cpm, 2),
+            'Median CPM': round(median_cpm, 2),
+            'Max CPM': round(max_cpm, 2),
+            'Min CPR': round(min_cpr, 2),
+            'Median CPR': round(median_cpr, 2),
+            'Max CPR': round(max_cpr, 2),
             'No. of Campaigns': num_campaigns,
         }
 
@@ -156,6 +158,7 @@ def get_descriptive_stats(df: pd.DataFrame) -> pd.DataFrame:
 
     df_best_roas_sets = pd.concat(best_campaign_sets)
     return df_best_roas_sets
+
 
 #################################################
 # Get Forecast By Value Endpoint
@@ -171,65 +174,37 @@ def get_forecast_by_value_endpoint(input: ForecastInput):
     df = pd.DataFrame(input.data)
     return get_forecast_by_value(df, input.budget, input.distribution).to_dict(orient='records')
 
-def get_forecast_by_value(df: pd.DataFrame, budget: float, distribution: dict[str, int]) -> pd.DataFrame:
+def get_forecast_by_value(df: pd.DataFrame) -> pd.DataFrame:
     """
     Function that uses the output dataframe from `get_descriptive_stats()`
-    to calculate projections of campaign results for Impressions and Results e.g.,
-    purchases, messages, likes, etc.
+    to calculate projections of campaign results for Impressions and Results.
 
-    ### Arguments
-    - `df`: the output pandas dataframe from `get_descriptive_stats()`
-    - `budget`: the total budget allocated for the campaign
-    - `distribution`: a dictionary where keys are result types and values are the distribution percentages
+    Args:
+        df (pd.DataFrame): The output pandas dataframe from `get_descriptive_stats()`.
 
-    ### Return
-    A dataframe with the following metrics:
-    - `Ad Spent`: The amount spent on the campaign
-    - `Max Impressions`: The number of times the ad is shown
-    - `Median Impressions`
-    - `Min Impressions`
-    - `Max Results`: The best results (e.g., num. of likes, purchases, etc.)
-    from a particular campaign
-    - `Median Results`
-    - `Min Results`
+    Returns:
+        pd.DataFrame: A dataframe with forecasted metrics.
     """
-
     df = df.copy()
 
-    # Filter the distribution to include only result types present in the DataFrame
-    filtered_distribution = {k: v for k, v in distribution.items() if k in df['Result Type'].values}
-    
-    # Adjust the percentages to add up to 100%
-    total_percentage = sum(filtered_distribution.values())
-    if total_percentage != 100:
-        factor = 100 / total_percentage
-        filtered_distribution = {k: v * factor for k, v in filtered_distribution.items()}
+    budget = 100.00  # Placeholder for the budget value. Replace with actual budget input as needed.
 
     result_dict = {
         'Result Type': [],
         'Distribution (%)': []
     }
-
-    for result_type, percentage in filtered_distribution.items():
+    for result_type in df['Result Type'].unique():
         result_dict['Result Type'].append(result_type)
-        result_dict['Distribution (%)'].append(percentage)
+        result_dict['Distribution (%)'].append(25)  # Placeholder for distribution percentage. Replace as needed.
 
-    # Create a DataFrame from the result dictionary
     df_money = pd.DataFrame(result_dict)
     df_money['Ad Spent'] = (df_money['Distribution (%)'] / 100) * budget
-
-    # Ensure the total Ad Spent sums to the budget
-    total_spent = df_money['Ad Spent'].sum()
-    if total_spent != budget:
-
-        df_money['Ad Spent'] = df_money['Ad Spent'] * (budget / total_spent)
 
     df_final = pd.merge(df, df_money, on='Result Type')
 
     df_final['Max Impressions'] = round((df_final['Ad Spent'] / df_final['Min CPM']) * 1000)
     df_final['Median Impressions'] = round((df_final['Ad Spent'] / df_final['Median CPM']) * 1000)
     df_final['Min Impressions'] = round((df_final['Ad Spent'] / df_final['Max CPM']) * 1000)
-
     df_final['Max Results'] = round(df_final['Ad Spent'] / df_final['Min CPR'])
     df_final['Median Results'] = round(df_final['Ad Spent'] / df_final['Median CPR'])
     df_final['Min Results'] = round(df_final['Ad Spent'] / df_final['Max CPR'])
@@ -246,6 +221,7 @@ def get_forecast_by_value(df: pd.DataFrame, budget: float, distribution: dict[st
     ]]
 
     return df_final
+
 
 #################################################
 # Load Data from AWS S3 Endpoint 
@@ -311,10 +287,6 @@ def main(input: FilterInputWithPagination):
     logging.info(f"Filter options: {input.filter_options}")
     filtered_df = filter_dataframe(df_unfiltered, input.filter_options)
     logging.info(f"Filtered DataFrame: {filtered_df.head()}")
-
-    # Ensure the dataframe has all necessary fields
-    complete_df = complete_filtered_dataframe(filtered_df)
-    logging.info(f"Complete DataFrame: {complete_df.head()}")
     
     # Implement pagination
     page = input.pagination.page

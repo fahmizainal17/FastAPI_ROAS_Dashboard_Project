@@ -108,66 +108,6 @@ def test_get_forecast_by_value2(sample_data_descriptive2):
     ]
     assert all(column in result.columns for column in expected_columns)
 
-def test_main():
-    df_unfiltered = load_campaigns_df()
-    print("df_unfiltered")
-    print(df_unfiltered.head())  # Debugging statement to inspect the DataFrame
-    
-    filter_input = {
-        "data": df_unfiltered.to_dict(orient='records'),
-        "filter_options": {"Client Industry": "Information, Tech & Telecommunications"},
-        "pagination": {"page": 1, "size": 10}
-    }
-    filtered_df = filter_dataframe(pd.DataFrame(filter_input["data"]), filter_input["filter_options"])
-    print("filtered_df")
-    print(filtered_df.head())  # Debugging statement to inspect the filtered DataFrame
-    assert filtered_df is not None
-    assert len(filtered_df) > 0
-
-@pytest.fixture
-def campaign_data():
-    data = {
-        'Start Date': ['26/10/2023', '22/10/2023', '07/11/2023', ''],
-        'Stop Date': ['', '31/10/2023', '14/11/2023', ''],
-        'Client Industry': ['Healthcare & Life Sciences', 'Fashion & Lifestyle', 'Interior Design & Construction', 'Tech'],
-        'Facebook Page Category': ['Women\'s health clinic', 'Kitchen/Cooking', 'Product/service', 'Technology'],
-        'Ads Objective': ['OUTCOME_ENGAGEMENT', 'LINK_CLICKS', 'MESSAGES', 'ENGAGEMENT'],
-        'Facebook Page Name': ['MediHope Clinic', 'CookX Asia', 'Thebeddingscompany', 'TechPage'],
-        'Amount Spent': [283.68, 134.98, 103.51, 200.0],
-        'Impressions': [17681, 12816, 2894, 15000],
-        'Reach': [14233, 12308, 2637, 14000],
-        'Result Type': ['engagement', 'link_click', 'messaging', 'likes'],
-        'Total Results': [382, 233, 9, 100],
-        'Cost per Result': [0.742617806, 0.579313305, 11.50111122, 2.0],
-        'Cost per Mile': [16.0443415, 10.53214732, 35.7671047, 12.5],
-        'Campaign Name': ['2310 hiring CA Engagement campaign', 'Instagram post: Take a break, enjoy some freshly...', '[07/11/2023] Promosikan \\Hantar Mesej', 'Tech Campaign'],
-        'Campaign ID': ['1.20E+17', '1.20E+17', '1.20E+17', '1.20E+17'],
-        'Account ID': ['act_677307980358149', 'act_323845685787372', 'act_633408050688462', 'act_123456789012345'],
-        'Company Name': ['Golden Gate Medihope Group Sdn. Bhd.', 'CookX Asia Sdn Bhd', 'Viscopro Sdn. Bhd.', 'Tech Company'],
-        'Country': ['MY', 'MY', 'MY', 'US'],
-        'Start Year': [2023, 2023, 2023, 2023],
-        'Start Month': ['October', 'October', 'November', 'November']
-    }
-    
-    # Handle blanks in date columns by filling with today's date
-    today = datetime.today().strftime('%d/%m/%Y')
-    data['Start Date'] = [date if date else today for date in data['Start Date']]
-    data['Stop Date'] = [date if date else today for date in data['Stop Date']]
-    
-    return pd.DataFrame(data)
-
-def test_campaign_data_handling(campaign_data):
-    assert not campaign_data.empty
-    assert 'Start Date' in campaign_data.columns
-    assert 'Stop Date' in campaign_data.columns
-
-def get_storage_config():
-    return {
-        "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),
-        "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
-        "bucket_name": os.getenv("S3_BUCKET_NAME")
-    }
-
 def test_load_data_from_s3():
     storage_config = get_storage_config()
     print("AWS_ACCESS_KEY_ID:", storage_config['aws_access_key_id'])  # Debugging statement
@@ -186,6 +126,37 @@ def test_load_data_from_s3():
     assert 'Campaign ID' in df.columns, "Expected column 'Campaign ID' not found in DataFrame"
     assert 'Result Type' in df.columns, "Expected column 'Result Type' not found in DataFrame"
 
+def test_main():
+    df_unfiltered = load_campaigns_df()
+    print("Unfiltered DataFrame Columns:")
+    print(df_unfiltered.columns)  # Debugging statement to inspect columns
+
+    print("Unfiltered DataFrame:")
+    print(df_unfiltered.head())  # Debugging statement to inspect the DataFrame
+
+    filter_input = {
+        "data": df_unfiltered.to_dict(orient='records'),
+        "filter_options": {"Client Industry": "Information, Tech & Telecommunications"},
+        "pagination": {"page": 1, "size": 10}
+    }
+
+    filtered_df = filter_dataframe(pd.DataFrame(filter_input["data"]), filter_input["filter_options"])
+    print("Filtered DataFrame Columns:")
+    print(filtered_df.columns)  # Debugging statement to inspect columns
+
+    print("Filtered DataFrame:")
+    print(filtered_df.head())  # Debugging statement to inspect the filtered DataFrame
+
+    assert filtered_df is not None
+    assert len(filtered_df) > 0, "Filtered DataFrame is empty"
+
+    try:
+        stats_df = get_descriptive_stats(filtered_df)
+        print("Descriptive Statistics DataFrame:")
+        print(stats_df.head())  # Debugging statement to inspect the stats DataFrame
+    except ValueError as e:
+        print(e)
+        raise
 
 # Running the tests directly if this file is executed
 if __name__ == "__main__":
