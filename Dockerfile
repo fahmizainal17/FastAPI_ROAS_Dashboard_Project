@@ -11,18 +11,17 @@ RUN echo "### --- Ubuntu dependencies --- ###" \
     curl \
     poppler-utils 
 
-# Setup directory
-RUN echo "### --- Directory setup --- ###" \
-    && mkdir /app
-WORKDIR /app
-COPY ./app .
+# Set the working directory in the container
+WORKDIR /FastAPI_for_Roas
+
+# Copy the requirements file into the container
+COPY requirements.txt .
 
 # Install Python packages
-COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Change directory to root
-WORKDIR /
+# Copy the rest of the application code into the container
+COPY . .
 
 # Expose port 80
 EXPOSE 80
