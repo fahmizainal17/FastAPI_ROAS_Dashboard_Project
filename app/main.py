@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from app.routers.Autoforecaster_module import router as autoforecaster_router
 from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
+import os
 
 # Load environment variables
 load_dotenv()
@@ -13,6 +14,7 @@ app = FastAPI(
     docs_url="/docs",
     openapi_url="/openapi.json",
 )
+
 
 @app.get("/", response_class=HTMLResponse, summary="Welcome_Page", tags=["Root_Of_FastAPI_Application"])
 def root():

@@ -12,6 +12,8 @@ from typing import List, Dict, Any , Optional
 import numpy as np
 from app.routers.load_exp_data_utils import ImportDataS3, load_clients_df, load_roas_df, load_campaigns_df, load_adsets_df, convert_df, load_feedback_form, get_storage_config
 from app.routers.miscellaneous_utils import round_to_two_decimal_places_with_min 
+from dotenv import load_dotenv
+import os 
 
 #################################################
 # Utility Functions and Classes

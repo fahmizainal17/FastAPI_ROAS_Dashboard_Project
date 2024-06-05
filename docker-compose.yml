@@ -1,11 +1,11 @@
-version: '3.9'
-
 services:
   fastapi:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
-      - "80:80"
+      - "8000:8000"
+    volumes:
+      - .:/code
     env_file:
       - .env
-    volumes:
-      - .:/app
