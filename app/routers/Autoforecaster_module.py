@@ -25,6 +25,8 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+API_ROUTER_PREFIX = os.getenv("API_ROUTER_PREFIX")
+
 router = APIRouter()
 
 #################################################

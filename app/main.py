@@ -7,12 +7,14 @@ import os
 # Load environment variables
 load_dotenv()
 
+API_ROUTER_PREFIX = os.getenv("API_ROUTER_PREFIX")
+
 app = FastAPI(
     title="FastAPI For ROAS Dashboard",
     summary="A collection of endpoints for FastAPI For ROAS Dashboard",
     version="0.1.0",
-    docs_url="/docs",
-    openapi_url="/openapi.json",
+    docs_url=f"/{API_ROUTER_PREFIX}/docs",
+    openapi_url=f"/{API_ROUTER_PREFIX}/openapi.json",
 )
 
 
@@ -56,7 +58,7 @@ def root():
     """
     return HTMLResponse(content=html_content)
 
-app.include_router(autoforecaster_router, prefix="/first_page", tags=["Autoforecaster"])
+app.include_router(autoforecaster_router, prefix=f"/{API_ROUTER_PREFIX}", tags=["Autoforecaster"])
 
 # Run the application
 if __name__ == "__main__":
