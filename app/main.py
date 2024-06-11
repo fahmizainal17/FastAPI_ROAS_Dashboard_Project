@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routers.Autoforecaster_module import router as autoforecaster_router
+from routers.Autoforecaster_module import router as autoforecaster_router
 from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
 import os
@@ -16,7 +16,6 @@ app = FastAPI(
     docs_url=f"/{API_ROUTER_PREFIX}/docs",
     openapi_url=f"/{API_ROUTER_PREFIX}/openapi.json",
 )
-
 
 @app.get("/", response_class=HTMLResponse, summary="Welcome_Page", tags=["Root_Of_FastAPI_Application"])
 def root():
@@ -58,9 +57,9 @@ def root():
     """
     return HTMLResponse(content=html_content)
 
-app.include_router(autoforecaster_router, tags=["Autoforecaster"])
+app.include_router(autoforecaster_router, prefix=f"/{API_ROUTER_PREFIX}", tags=["Autoforecaster"])
 
 # Run the application
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=80)

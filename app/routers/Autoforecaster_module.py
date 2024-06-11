@@ -12,8 +12,6 @@ from typing import List, Dict, Any , Optional
 import numpy as np
 from app.routers.load_exp_data_utils import ImportDataS3, load_clients_df, load_roas_df, load_campaigns_df, load_adsets_df, convert_df, load_feedback_form, get_storage_config
 from app.routers.miscellaneous_utils import round_to_two_decimal_places_with_min 
-from dotenv import load_dotenv
-import os 
 
 #################################################
 # Utility Functions and Classes
@@ -29,9 +27,9 @@ API_ROUTER_PREFIX = os.getenv("API_ROUTER_PREFIX")
 
 router = APIRouter()
 
-###################################################
+#################################################
 # Filter Dataframe Endpoint
-##################################################
+#################################################
 
 # Pagination model
 class Pagination(BaseModel):
@@ -79,15 +77,23 @@ def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
                 df = df[df[key].isin(value)]
             else:
                 df = df[df[key] == value]
+        else:
+            raise KeyError(f"Column '{key}' not found in DataFrame")  # <-- Added this line
     return df
 
+
 # Endpoint to filter the dataframe with pagination
-@router.post(f"/{API_ROUTER_PREFIX}/filter_dataframe", response_model=List[FilteredItem])
+@router.post("/filter_dataframe", response_model=List[FilteredItem])
 def filter_dataframe_endpoint(input: FilterInputWithPagination):
     df = pd.DataFrame(input.data)
+    
+    # Check if the column exists
+    for col in ["Facebook_Page_Name"]:  # <-- Added this block
+        if col not in df.columns:
+            raise ValueError(f"Column '{col}' does not exist in the DataFrame")  # <-- Added this line
+
     filtered_df = filter_dataframe(df, input.filter_options)
 
-    # Implement pagination
     page = input.pagination.page
     size = input.pagination.size
     start = (page - 1) * size
@@ -96,7 +102,6 @@ def filter_dataframe_endpoint(input: FilterInputWithPagination):
     
     return paginated_df.to_dict(orient='records')
 
-
 #################################################
 # Get Descriptive Stats Endpoint
 #################################################
@@ -104,7 +109,7 @@ def filter_dataframe_endpoint(input: FilterInputWithPagination):
 class StatsInput(BaseModel):
     data: List[Dict[str, Any]]
 
-@router.post(f"/{API_ROUTER_PREFIX}/get_descriptive_stats", response_model=List[Dict[str, Any]])
+@router.post("/get_descriptive_stats", response_model=List[Dict[str, Any]])
 def get_descriptive_stats_endpoint(input: StatsInput):
     df = pd.DataFrame(input.data)
     logging.info(f"DataFrame Columns before stats calculation: {df.columns}")
@@ -175,7 +180,7 @@ class ForecastInput(BaseModel):
     budget: float
     distribution: Dict[str, int]
 
-@router.post(f"/{API_ROUTER_PREFIX}/get_forecast_by_value", response_model=List[Dict[str, Any]])
+@router.post("/get_forecast_by_value", response_model=List[Dict[str, Any]])
 def get_forecast_by_value_endpoint(input: ForecastInput):
     df = pd.DataFrame(input.data)
     return get_forecast_by_value(df, input.budget, input.distribution).to_dict(orient='records')
@@ -236,7 +241,7 @@ def get_forecast_by_value(df: pd.DataFrame, budget: float, distribution: Dict[st
 class LoadDataInput(BaseModel):
     key: str
 
-@router.get(f"/{API_ROUTER_PREFIX}/load-data/{{key}}")
+@router.get("/load-data/{key}")
 async def load_data(key: str):
     storage_config = get_storage_config()
     if not storage_config['aws_access_key_id'] or not storage_config['aws_secret_access_key']:
@@ -283,7 +288,7 @@ def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
     return df
     
 # Endpoint to filter data with pagination
-@router.post(f"/{API_ROUTER_PREFIX}/main", response_model=List[Dict])
+@router.post("/main", response_model=List[Dict])
 def main(input: FilterInputWithPagination):
     logging.info("Loading campaigns data")
     df_unfiltered = pd.DataFrame(input.data)
