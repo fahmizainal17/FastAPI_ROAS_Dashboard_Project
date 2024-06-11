@@ -236,7 +236,7 @@ def get_forecast_by_value(df: pd.DataFrame, budget: float, distribution: Dict[st
 class LoadDataInput(BaseModel):
     key: str
 
-@router.get(f"/{API_ROUTER_PREFIX}/load-data/{key}")
+@router.get(f"/{API_ROUTER_PREFIX}/load-data/{{key}}")
 async def load_data(key: str):
     storage_config = get_storage_config()
     if not storage_config['aws_access_key_id'] or not storage_config['aws_secret_access_key']:

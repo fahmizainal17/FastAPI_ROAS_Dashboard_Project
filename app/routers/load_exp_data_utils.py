@@ -11,6 +11,7 @@ from datetime import datetime
 # Load environment variables from .env file
 load_dotenv()
 
+
 def get_storage_config():
     return {
         "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),

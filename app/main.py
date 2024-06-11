@@ -58,7 +58,7 @@ def root():
     """
     return HTMLResponse(content=html_content)
 
-app.include_router(autoforecaster_router, prefix=f"/{API_ROUTER_PREFIX}", tags=["Autoforecaster"])
+app.include_router(autoforecaster_router, tags=["Autoforecaster"])
 
 # Run the application
 if __name__ == "__main__":
