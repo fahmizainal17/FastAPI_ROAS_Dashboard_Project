@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers.Autoforecaster_module import router as autoforecaster_router
+from app.routers.Autoforecaster_module import router as autoforecaster_router
 from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
 import os
