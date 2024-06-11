@@ -15,7 +15,7 @@ def get_storage_config():
     return {
         "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),
         "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
-        "bucket_name": os.getenv("S3_BUCKET_NAME")
+        "bucket_name": os.getenv("BUCKET_NAME")
     }
 
 class ImportDataS3:
@@ -49,7 +49,7 @@ class ImportDataS3:
 # Load AWS credentials from environment variables
 aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
 aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-bucket_name = os.getenv("S3_BUCKET_NAME")
+bucket_name = os.getenv("BUCKET_NAME")
 
 # Initialize the ImportDataS3 instance
 decoris_dl = ImportDataS3(aws_access_key_id, aws_secret_access_key, bucket_name)

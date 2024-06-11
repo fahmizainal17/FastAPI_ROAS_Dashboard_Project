@@ -82,7 +82,7 @@ def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
     return df
 
 # Endpoint to filter the dataframe with pagination
-@router.post("/filter_dataframe", response_model=List[FilteredItem])
+@router.post(f"/{API_ROUTER_PREFIX}/filter_dataframe", response_model=List[FilteredItem])
 def filter_dataframe_endpoint(input: FilterInputWithPagination):
     df = pd.DataFrame(input.data)
     filtered_df = filter_dataframe(df, input.filter_options)
@@ -104,7 +104,7 @@ def filter_dataframe_endpoint(input: FilterInputWithPagination):
 class StatsInput(BaseModel):
     data: List[Dict[str, Any]]
 
-@router.post("/get_descriptive_stats", response_model=List[Dict[str, Any]])
+@router.post(f"/{API_ROUTER_PREFIX}/get_descriptive_stats", response_model=List[Dict[str, Any]])
 def get_descriptive_stats_endpoint(input: StatsInput):
     df = pd.DataFrame(input.data)
     logging.info(f"DataFrame Columns before stats calculation: {df.columns}")
@@ -175,7 +175,7 @@ class ForecastInput(BaseModel):
     budget: float
     distribution: Dict[str, int]
 
-@router.post("/get_forecast_by_value", response_model=List[Dict[str, Any]])
+@router.post(f"/{API_ROUTER_PREFIX}/get_forecast_by_value", response_model=List[Dict[str, Any]])
 def get_forecast_by_value_endpoint(input: ForecastInput):
     df = pd.DataFrame(input.data)
     return get_forecast_by_value(df, input.budget, input.distribution).to_dict(orient='records')
@@ -236,7 +236,7 @@ def get_forecast_by_value(df: pd.DataFrame, budget: float, distribution: Dict[st
 class LoadDataInput(BaseModel):
     key: str
 
-@router.get("/load-data/{key}")
+@router.get(f"/{API_ROUTER_PREFIX}/load-data/{key}")
 async def load_data(key: str):
     storage_config = get_storage_config()
     if not storage_config['aws_access_key_id'] or not storage_config['aws_secret_access_key']:
@@ -283,7 +283,7 @@ def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
     return df
     
 # Endpoint to filter data with pagination
-@router.post("/main", response_model=List[Dict])
+@router.post(f"/{API_ROUTER_PREFIX}/main", response_model=List[Dict])
 def main(input: FilterInputWithPagination):
     logging.info("Loading campaigns data")
     df_unfiltered = pd.DataFrame(input.data)
