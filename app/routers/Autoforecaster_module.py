@@ -24,6 +24,17 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 API_ROUTER_PREFIX = os.getenv("API_ROUTER_PREFIX")
+key = os.getenv("BUCKET_NAME")
+storage_config = get_storage_config()
+if not storage_config['aws_access_key_id'] or not storage_config['aws_secret_access_key']:
+    raise HTTPException(status_code=500, detail="Storage configuration is missing.")
+
+s3_storage = ImportDataS3(storage_config['aws_access_key_id'], storage_config['aws_secret_access_key'], storage_config['bucket_name'])
+df = s3_storage.load_df(key)
+
+buffer = BytesIO()
+df.to_parquet(buffer, index=False)
+buffer.seek(0)
 
 router = APIRouter()
 
@@ -78,7 +89,7 @@ def filter_dataframe(df: pd.DataFrame, options: dict) -> pd.DataFrame:
             else:
                 df = df[df[key] == value]
         else:
-            raise KeyError(f"Column '{key}' not found in DataFrame")  # <-- Added this line
+            raise KeyError(f"Column '{key}' not found in DataFrame")  
     return df
 
 
@@ -88,9 +99,9 @@ def filter_dataframe_endpoint(input: FilterInputWithPagination):
     df = pd.DataFrame(input.data)
     
     # Check if the column exists
-    for col in ["Facebook_Page_Name"]:  # <-- Added this block
+    for col in ["Facebook_Page_Name"]: 
         if col not in df.columns:
-            raise ValueError(f"Column '{col}' does not exist in the DataFrame")  # <-- Added this line
+            raise ValueError(f"Column '{col}' does not exist in the DataFrame")  
 
     filtered_df = filter_dataframe(df, input.filter_options)
 
@@ -241,18 +252,18 @@ def get_forecast_by_value(df: pd.DataFrame, budget: float, distribution: Dict[st
 class LoadDataInput(BaseModel):
     key: str
 
-@router.get("/load-data/{key}")
+@router.get("/load-data/{{key}}")
 async def load_data(key: str):
-    storage_config = get_storage_config()
-    if not storage_config['aws_access_key_id'] or not storage_config['aws_secret_access_key']:
-        raise HTTPException(status_code=500, detail="Storage configuration is missing.")
+    # storage_config = get_storage_config()
+    # if not storage_config['aws_access_key_id'] or not storage_config['aws_secret_access_key']:
+    #     raise HTTPException(status_code=500, detail="Storage configuration is missing.")
     
-    s3_storage = ImportDataS3(storage_config['aws_access_key_id'], storage_config['aws_secret_access_key'], storage_config['bucket_name'])
-    df = s3_storage.load_df(key)
+    # s3_storage = ImportDataS3(storage_config['aws_access_key_id'], storage_config['aws_secret_access_key'], storage_config['bucket_name'])
+    # df = s3_storage.load_df(key)
     
-    buffer = BytesIO()
-    df.to_parquet(buffer, index=False)
-    buffer.seek(0)
+    # buffer = BytesIO()
+    # df.to_parquet(buffer, index=False)
+    # buffer.seek(0)
     
     headers = {
         'Content-Disposition': f'attachment; filename="{key}"',
